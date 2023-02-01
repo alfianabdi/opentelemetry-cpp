@@ -12,7 +12,7 @@ You can link OpenTelemetry C++ SDK with libraries provided in
 
 ## Build instructions using CMake
 
-### Prerequisites for CMake
+### Prerequisites for CMake build
 
 - A supported platform (e.g. Windows, macOS or Linux). Refer to [Platforms
   Supported](./README.md#supported-development-platforms) for more information.
@@ -38,20 +38,19 @@ You can link OpenTelemetry C++ SDK with libraries provided in
   [GoogleBenchmark Build
   Instructions](https://github.com/google/benchmark#installation).
 - Apart from above core requirements, the Exporters and Propagators have their
-  build dependencies which are not covered here. E.g, Otlp Exporter needs
-  grpc/protobuf library, Zipkin exporter needs nlohmann-json and libcurl, ETW
-  exporter need nlohmann-json to build. This is covered in the build
+  build dependencies which are not covered here. E.g, the OTLP Exporter needs
+  grpc/protobuf library, the Zipkin exporter needs nlohmann-json and libcurl,
+  the ETW exporter needs nlohmann-json to build. This is covered in the build
   instructions for each of these components.
 
 ### Building as standalone CMake Project
 
-1. Getting the opentelementry-cpp source:
+1. Getting the opentelementry-cpp source with its submodules:
 
    ```console
    # Change to the directory where you want to create the code repository
    $ cd ~
-   $ mkdir source && cd source
-   $ git clone --recursive https://github.com/open-telemetry/opentelemetry-cpp
+   $ mkdir source && cd source && git clone --recurse-submodules https://github.com/open-telemetry/opentelemetry-cpp
    Cloning into 'opentelemetry-cpp'...
    ...
    Resolving deltas: 100% (3225/3225), done.
@@ -63,8 +62,7 @@ You can link OpenTelemetry C++ SDK with libraries provided in
 
    ```console
    $ cd opentelemetry-cpp
-   $ mkdir build && cd build
-   $ cmake ..
+   $ mkdir build && cd build && cmake ..
    -- The C compiler identification is GNU 9.3.0
    -- The CXX compiler identification is GNU 9.3.0
    ...
@@ -83,12 +81,12 @@ You can link OpenTelemetry C++ SDK with libraries provided in
      inclusion in shared libraries, this variable is used.
    - `-DBUILD_SHARED_LIBS=ON` : To build shared libraries for the targets.
       Please refer to note [below](#building-shared-libs-for-windows) for
-      Windows DLL support
-   - `-DWITH_OTLP=ON` : To enable building Otlp exporter.
+      Windows DLL support.
+   - `-DWITH_OTLP=ON` : To enable building OTLP exporter.
    - `-DWITH_PROMETHEUS=ON` : To enable building prometheus exporter.
 
-3. Once build configuration is created, build the CMake targets - this includes
-   building SDKs, and building unittests for API and SDK. Note that since API is
+3. Once the build configuration is created, build the CMake targets - this
+   includes building SDKs and unittests for API and SDK. Note that since API is
    header only library, no separate build is triggered for it.
 
    ```console
@@ -121,7 +119,7 @@ You can link OpenTelemetry C++ SDK with libraries provided in
    files for SDK at custom/default install location.
 
    ```console
-   $ cmake --install . --config Debug --prefix /<install_root>/
+   $ cmake --install . --prefix /<install-root>/
    -- Installing: /<install-root>/lib/cmake/opentelemetry-cpp/opentelemetry-cpp-config.cmake
    -- Installing: /<install-root>/lib/cmake/opentelemetry-cpp/opentelemetry-cpp-config-version.cmake
    ...
@@ -155,7 +153,7 @@ NOTE: Experimental, and not supported for all the components. Make sure the
 there is a different version of googletest already installed in system-defined
 path.
 
-### Prerequisites for Bazel
+### Prerequisites for Bazel build
 
 - A supported platform (e.g. Windows, macOS or Linux). Refer to [Platforms
 Supported](./README.md#supported-development-platforms) for more information.
@@ -231,6 +229,11 @@ load("@io_opentelemetry_cpp//bazel:repository.bzl", "opentelemetry_cpp_deps")
 
 opentelemetry_cpp_deps()
 
+# Load extra dependencies required for OpenTelemetry
+load("@io_opentelemetry_cpp//bazel:extra_deps.bzl", "opentelemetry_extra_deps")
+
+opentelemetry_extra_deps()
+
 # Load gRPC dependencies after load.
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
@@ -265,6 +268,42 @@ Windows DLL build is not supported. There are some constraints on how C++ DLLs
 work on Windows, specifically we can't safely allocate memory in one DLL and
 free it in another. For now, OpenTelemetry C++ targets need to be statically
 linked into the Windows applications.
+
+## Generatring binary packages
+
+OpenTelemetry C++ supports generating plateform specific binary packages from CMake
+configuration. The packages generated through this mayn't be production ready,
+and user may have to customize it further before using it as distribution.
+
+- Linux : deb, rpm, tgz
+- MacOS : tgz
+- Windows : NuGet, zip
+
+This requires platform specific package generators already installed. The package
+generation can subsequently be enabled by using BUILD_PACKAGE option during cmake
+configuration
+
+   ```console
+   $ cd opentelemetry-cpp
+   $ mkdir build && cd build && cmake -DBUILD_PACKAGE=ON ..
+
+   -- Package name: opentelemetry-cpp-1.8.1-ubuntu-20.04-x86_64.deb
+   -- Configuring done
+   -- Generating done
+   ...
+   $
+   ```
+
+Once build is complete as specified in [standalone build section](#building-as-standalone-cmake-project),
+the package can be generated as below.
+
+   ```console
+   $ cpack -C debug
+   CPack: Create package using DEB
+   ...
+   CPack: - package: /home/<user>/opentelemetry-cpp/build/opentelemetry-cpp-1.8.1-ubuntu-20.04-x86_64.deb generated.
+   $
+   ```
 
 ## Using Package Managers
 

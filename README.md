@@ -10,32 +10,16 @@ The C++ [OpenTelemetry](https://opentelemetry.io/) client.
 
 ## Project Status
 
-| Signal  | Status                 | Project                                                                  |
-| ------- | ---------------------- | ------------------------------------------------------------------------ |
-| Traces  | Public Release         | N/A                                                                      |
-| Metrics | Alpha        [1]       | N/A                                                                      |
-| Logs    | Experimental [2]       | N/A                                                                      |
+| Signal  | Status                  | Project                                                                  |
+| ------- | ----------------------- | ------------------------------------------------------------------------ |
+| Traces  | Public Release          | N/A                                                                      |
+| Metrics | Public Release          | N/A                                                                      |
+| Logs    | Experimental [1]        | [Release Milestone](https://github.com/open-telemetry/opentelemetry-cpp/milestone/18)|
 
-* [1]: The metric collection pipeline is available for testing purpose. Not
-      ready for production. The earlier implementation (based on old
-      specification) can be included in build by setting
-      `ENABLE_METRICS_PREVIEW` preprocessor macro, and is included under
-      `*/_metrics/*` directory. This would be eventually removed once the
-      ongoing implemetation is stable.
-* [2]: The current Log Signal Implementation is Experimental, and will change as
+* [1]: The current Log Signal Implementation is Experimental, and will change as
       the current OpenTelemetry Log specification matures. The current
       implementation can be included in build by setting `ENABLE_LOGS_PREVIEW`
       preprocessor macro.
-
-## OpenTelemetry Specification Compatibility Matrix
-
-| API Version | Core Version | Contrib Version         |
-| ----------- |--------------|-------------------------|
-| 1.0.0       | 1.0.0-rc4    | N/A [1]                 |
-| 1.0.0       | 1.0.0        | N/A                     |
-
-* [1]: We don't have releases for opentelemetry-cpp contrib repo. This may
-      change in future.
 
 ## Supported C++ Versions
 
@@ -97,7 +81,7 @@ along with build files for CMake and Bazel.
 See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 We meet weekly, and the time of the meeting alternates between Monday at 13:00
-PT and Wednesday at 10:00 PT. The meeting is subject to change depending on
+PT and Wednesday at 9:00 PT. The meeting is subject to change depending on
 contributors' availability. Check the [OpenTelemetry community
 calendar](https://calendar.google.com/calendar/embed?src=google.com_b79e3e90j7bbsa2n2p5an5lf60%40group.calendar.google.com)
 for specific dates and Zoom meeting links.
@@ -118,6 +102,7 @@ For edit access, get in touch on
 ([@open-telemetry/cpp-approvers](https://github.com/orgs/open-telemetry/teams/cpp-approvers)):
 
 * [Josh Suereth](https://github.com/jsuereth), Google
+* [Marc Alff](https://github.com/marcalff), Oracle
 * [Reiley Yang](https://github.com/reyang), Microsoft
 * [WenTao Ou](https://github.com/owent), Tencent
 

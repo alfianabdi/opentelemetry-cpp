@@ -2,15 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
 
-#  include "opentelemetry/sdk/metrics/metric_reader.h"
-#  include "opentelemetry/version.h"
+#include "opentelemetry/sdk/metrics/metric_reader.h"
+#include "opentelemetry/version.h"
 
-#  include <atomic>
-#  include <chrono>
-#  include <condition_variable>
-#  include <thread>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <thread>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -18,7 +17,7 @@ namespace sdk
 namespace metrics
 {
 
-class MetricExporter;
+class PushMetricExporter;
 /**
  * Struct to hold PeriodicExortingMetricReader options.
  */
@@ -40,10 +39,11 @@ class PeriodicExportingMetricReader : public MetricReader
 {
 
 public:
-  PeriodicExportingMetricReader(
-      std::unique_ptr<MetricExporter> exporter,
-      const PeriodicExportingMetricReaderOptions &option,
-      AggregationTemporality aggregation_temporality = AggregationTemporality::kCumulative);
+  PeriodicExportingMetricReader(std::unique_ptr<PushMetricExporter> exporter,
+                                const PeriodicExportingMetricReaderOptions &option);
+
+  AggregationTemporality GetAggregationTemporality(
+      InstrumentType instrument_type) const noexcept override;
 
 private:
   bool OnForceFlush(std::chrono::microseconds timeout) noexcept override;
@@ -52,11 +52,12 @@ private:
 
   void OnInitialized() noexcept override;
 
-  std::unique_ptr<MetricExporter> exporter_;
+  std::unique_ptr<PushMetricExporter> exporter_;
   std::chrono::milliseconds export_interval_millis_;
   std::chrono::milliseconds export_timeout_millis_;
 
   void DoBackgroundWork();
+  bool CollectAndExportOnce();
 
   /* The background worker thread */
   std::thread worker_thread_;
@@ -69,4 +70,3 @@ private:
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

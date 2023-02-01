@@ -62,7 +62,7 @@ uint64_t CalculateThresholdFromBuffer(const trace_api::TraceId &trace_id) noexce
   uint64_t res = 0;
   std::memcpy(&res, &trace_id, 8);
 
-  double ratio = (double)res / UINT64_MAX;
+  double ratio = (double)res / (double)UINT64_MAX;
 
   return CalculateThreshold(ratio);
 }
@@ -92,14 +92,14 @@ SamplingResult TraceIdRatioBasedSampler::ShouldSample(
     const trace_api::SpanContextKeyValueIterable & /*links*/) noexcept
 {
   if (threshold_ == 0)
-    return {Decision::DROP, nullptr};
+    return {Decision::DROP, nullptr, {}};
 
   if (CalculateThresholdFromBuffer(trace_id) <= threshold_)
   {
-    return {Decision::RECORD_AND_SAMPLE, nullptr};
+    return {Decision::RECORD_AND_SAMPLE, nullptr, {}};
   }
 
-  return {Decision::DROP, nullptr};
+  return {Decision::DROP, nullptr, {}};
 }
 
 nostd::string_view TraceIdRatioBasedSampler::GetDescription() const noexcept

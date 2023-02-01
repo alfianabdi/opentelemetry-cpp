@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/sdk/metrics/state/attributes_hashmap.h"
-#  include "opentelemetry/sdk/metrics/state/metric_collector.h"
 
-#  include <memory>
+#include "opentelemetry/nostd/shared_ptr.h"
+#include "opentelemetry/sdk/metrics/aggregation/default_aggregation.h"
+#include "opentelemetry/sdk/metrics/state/attributes_hashmap.h"
+#include "opentelemetry/sdk/metrics/state/metric_collector.h"
+
+#include <list>
+#include <memory>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -23,7 +26,9 @@ struct LastReportedMetrics
 class TemporalMetricStorage
 {
 public:
-  TemporalMetricStorage(InstrumentDescriptor instrument_descriptor);
+  TemporalMetricStorage(InstrumentDescriptor instrument_descriptor,
+                        AggregationType aggregation_type,
+                        const AggregationConfig *aggregation_config);
 
   bool buildMetrics(CollectorHandle *collector,
                     nostd::span<std::shared_ptr<CollectorHandle>> collectors,
@@ -34,6 +39,7 @@ public:
 
 private:
   InstrumentDescriptor instrument_descriptor_;
+  AggregationType aggregation_type_;
 
   // unreported metrics stash for all the collectors
   std::unordered_map<CollectorHandle *, std::list<std::shared_ptr<AttributesHashMap>>>
@@ -43,8 +49,8 @@ private:
 
   // Lock while building metrics
   mutable opentelemetry::common::SpinLockMutex lock_;
+  const AggregationConfig *aggregation_config_;
 };
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

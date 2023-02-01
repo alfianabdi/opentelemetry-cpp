@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "opentelemetry/sdk/trace/tracer_provider.h"
+#include "opentelemetry/sdk/common/global_log_handler.h"
 #include "opentelemetry/sdk_config.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
@@ -14,7 +15,9 @@ namespace trace_api = opentelemetry::trace;
 
 TracerProvider::TracerProvider(std::shared_ptr<sdk::trace::TracerContext> context) noexcept
     : context_{context}
-{}
+{
+  OTEL_INTERNAL_LOG_DEBUG("[TracerProvider] TracerProvider created.");
+}
 
 TracerProvider::TracerProvider(std::unique_ptr<SpanProcessor> processor,
                                resource::Resource resource,
@@ -40,7 +43,7 @@ TracerProvider::~TracerProvider()
 {
   // Tracer hold the shared pointer to the context. So we can not use destructor of TracerContext to
   // Shutdown and flush all pending recordables when we have more than one tracers.These recordables
-  // may use the raw pointer of instrumentation_library_ in Tracer
+  // may use the raw pointer of instrumentation_scope_ in Tracer
   if (context_)
   {
     context_->Shutdown();
@@ -66,14 +69,14 @@ nostd::shared_ptr<trace_api::Tracer> TracerProvider::GetTracer(
 
   for (auto &tracer : tracers_)
   {
-    auto &tracer_lib = tracer->GetInstrumentationLibrary();
+    auto &tracer_lib = tracer->GetInstrumentationScope();
     if (tracer_lib.equal(library_name, library_version, schema_url))
     {
       return nostd::shared_ptr<trace_api::Tracer>{tracer};
     }
   }
 
-  auto lib = InstrumentationLibrary::Create(library_name, library_version, schema_url);
+  auto lib = InstrumentationScope::Create(library_name, library_version, schema_url);
   tracers_.push_back(std::shared_ptr<opentelemetry::sdk::trace::Tracer>(
       new sdk::trace::Tracer(context_, std::move(lib))));
   return nostd::shared_ptr<trace_api::Tracer>{tracers_.back()};

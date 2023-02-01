@@ -1,11 +1,10 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/sdk/metrics/metric_reader.h"
-#  include "opentelemetry/sdk/metrics/export/metric_producer.h"
+#include "opentelemetry/sdk/metrics/metric_reader.h"
+#include "opentelemetry/sdk/metrics/export/metric_producer.h"
 
-#  include <mutex>
+#include <mutex>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -13,19 +12,12 @@ namespace sdk
 namespace metrics
 {
 
-MetricReader::MetricReader(AggregationTemporality aggregation_temporality)
-    : aggregation_temporality_(aggregation_temporality), shutdown_(false), metric_producer_(nullptr)
-{}
+MetricReader::MetricReader() : metric_producer_(nullptr), shutdown_(false) {}
 
 void MetricReader::SetMetricProducer(MetricProducer *metric_producer)
 {
   metric_producer_ = metric_producer;
   OnInitialized();
-}
-
-AggregationTemporality MetricReader::GetAggregationTemporality() const noexcept
-{
-  return aggregation_temporality_;
 }
 
 bool MetricReader::Collect(
@@ -36,10 +28,12 @@ bool MetricReader::Collect(
     OTEL_INTERNAL_LOG_WARN(
         "MetricReader::Collect Cannot invoke Collect(). No MetricProducer registered for "
         "collection!")
+    return false;
   }
   if (IsShutdown())
   {
-    OTEL_INTERNAL_LOG_WARN("MetricReader::Collect Cannot invoke Collect(). Shutdown in progress!");
+    // Continue with warning, and let pull and push MetricReader state machine handle this.
+    OTEL_INTERNAL_LOG_WARN("MetricReader::Collect invoked while Shutdown in progress!");
   }
 
   return metric_producer_->Collect(callback);
@@ -91,4 +85,3 @@ bool MetricReader::IsShutdown() const noexcept
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

@@ -7,7 +7,7 @@
 
 namespace http_common = opentelemetry::ext::http::common;
 
-inline const char *const BoolToString(bool b)
+inline const char *BoolToString(bool b)
 {
   return b ? "true" : "false";
 }
@@ -111,6 +111,13 @@ TEST(UrlParserTests, BasicTests)
         {"port", "443"},
         {"scheme", "https"},
         {"path", "/path1/path2"},
+        {"query", "q1=a1&q2=a2"},
+        {"success", "true"}}},
+      {"http://www.abc.com/path1@bbb/path2?q1=a1&q2=a2",
+       {{"host", "www.abc.com"},
+        {"port", "80"},
+        {"scheme", "http"},
+        {"path", "/path1@bbb/path2"},
         {"query", "q1=a1&q2=a2"},
         {"success", "true"}}},
 

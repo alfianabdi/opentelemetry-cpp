@@ -1,8 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/exporters/prometheus/exporter.h"
+#include "opentelemetry/exporters/prometheus/exporter.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 
@@ -30,7 +29,14 @@ PrometheusExporter::PrometheusExporter(const PrometheusExporterOptions &options)
  */
 PrometheusExporter::PrometheusExporter() : is_shutdown_(false)
 {
-  collector_ = std::unique_ptr<PrometheusCollector>(new PrometheusCollector);
+  collector_ = std::unique_ptr<PrometheusCollector>(new PrometheusCollector(3));
+}
+
+sdk::metrics::AggregationTemporality PrometheusExporter::GetAggregationTemporality(
+    sdk::metrics::InstrumentType /* instrument_type */) const noexcept
+{
+  // Prometheus exporter only support Cumulative
+  return sdk::metrics::AggregationTemporality::kCumulative;
 }
 
 /**
@@ -45,9 +51,14 @@ sdk::common::ExportResult PrometheusExporter::Export(
   {
     return sdk::common::ExportResult::kFailure;
   }
-  else if (collector_->GetCollection().size() + 1 > (size_t)collector_->GetMaxCollectionSize())
+  else if (collector_->GetCollection().size() + data.scope_metric_data_.size() >
+           (size_t)collector_->GetMaxCollectionSize())
   {
     return sdk::common::ExportResult::kFailureFull;
+  }
+  else if (data.scope_metric_data_.empty())
+  {
+    return sdk::common::ExportResult::kFailureInvalidArgument;
   }
   else
   {
@@ -57,7 +68,7 @@ sdk::common::ExportResult PrometheusExporter::Export(
   return sdk::common::ExportResult::kSuccess;
 }
 
-bool PrometheusExporter::ForceFlush(std::chrono::microseconds timeout) noexcept
+bool PrometheusExporter::ForceFlush(std::chrono::microseconds /* timeout */) noexcept
 {
   return true;
 }
@@ -69,7 +80,7 @@ bool PrometheusExporter::ForceFlush(std::chrono::microseconds timeout) noexcept
  * collection to to client an HTTP request being sent,
  * so we flush the data.
  */
-bool PrometheusExporter::Shutdown(std::chrono::microseconds timeout) noexcept
+bool PrometheusExporter::Shutdown(std::chrono::microseconds /* timeout */) noexcept
 {
   is_shutdown_ = true;
   return true;
@@ -97,4 +108,3 @@ bool PrometheusExporter::IsShutdown() const
 }  // namespace metrics
 }  // namespace exporter
 OPENTELEMETRY_END_NAMESPACE
-#endif  // ENABLE_METRICS_PREVIEW

@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/common/spin_lock_mutex.h"
-#  include "opentelemetry/sdk/metrics/aggregation/aggregation.h"
 
-#  include <mutex>
+#include "opentelemetry/common/spin_lock_mutex.h"
+#include "opentelemetry/sdk/metrics/aggregation/aggregation.h"
+
+#include <mutex>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -20,9 +20,9 @@ public:
   LongLastValueAggregation(LastValuePointData &&);
   LongLastValueAggregation(const LastValuePointData &);
 
-  void Aggregate(long value, const PointAttributes &attributes = {}) noexcept override;
+  void Aggregate(int64_t value, const PointAttributes &attributes = {}) noexcept override;
 
-  void Aggregate(double value, const PointAttributes &attributes = {}) noexcept override {}
+  void Aggregate(double /* value */, const PointAttributes & /* attributes */) noexcept override {}
 
   std::unique_ptr<Aggregation> Merge(const Aggregation &delta) const noexcept override;
 
@@ -31,7 +31,7 @@ public:
   PointType ToPoint() const noexcept override;
 
 private:
-  opentelemetry::common::SpinLockMutex lock_;
+  mutable opentelemetry::common::SpinLockMutex lock_;
   LastValuePointData point_data_;
 };
 
@@ -42,7 +42,7 @@ public:
   DoubleLastValueAggregation(LastValuePointData &&);
   DoubleLastValueAggregation(const LastValuePointData &);
 
-  void Aggregate(long value, const PointAttributes &attributes = {}) noexcept override {}
+  void Aggregate(int64_t /* value */, const PointAttributes & /* attributes */) noexcept override {}
 
   void Aggregate(double value, const PointAttributes &attributes = {}) noexcept override;
 
@@ -60,4 +60,3 @@ private:
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

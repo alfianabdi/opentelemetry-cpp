@@ -1,16 +1,21 @@
 add_library(
   opentelemetry_metrics
+  async_instruments.cc
   meter_provider.cc
   meter.cc
   meter_context.cc
   metric_reader.cc
+  instrument_metadata_validator.cc
   export/periodic_exporting_metric_reader.cc
   state/metric_collector.cc
+  state/observable_registry.cc
   state/sync_metric_storage.cc
   state/temporal_metric_storage.cc
   aggregation/histogram_aggregation.cc
   aggregation/lastvalue_aggregation.cc
   aggregation/sum_aggregation.cc
+  exemplar/filter.cc
+  exemplar/reservoir.cc
   sync_instruments.cc)
 
 set_target_properties(opentelemetry_metrics PROPERTIES EXPORT_NAME metrics)

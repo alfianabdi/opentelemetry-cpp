@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #ifdef ENABLE_LOGS_PREVIEW
-#  include "opentelemetry/exporters/otlp/otlp_http_exporter.h"
-#  include "opentelemetry/exporters/otlp/otlp_http_log_exporter.h"
+#  include "opentelemetry/exporters/otlp/otlp_http_exporter_factory.h"
+#  include "opentelemetry/exporters/otlp/otlp_http_log_record_exporter_factory.h"
+#  include "opentelemetry/exporters/otlp/otlp_http_log_record_exporter_options.h"
 #  include "opentelemetry/logs/provider.h"
-#  include "opentelemetry/sdk/logs/logger_provider.h"
-#  include "opentelemetry/sdk/logs/simple_log_processor.h"
-#  include "opentelemetry/sdk/trace/simple_processor.h"
-#  include "opentelemetry/sdk/trace/tracer_provider.h"
+#  include "opentelemetry/sdk/common/global_log_handler.h"
+#  include "opentelemetry/sdk/logs/logger_provider_factory.h"
+#  include "opentelemetry/sdk/logs/simple_log_record_processor_factory.h"
+#  include "opentelemetry/sdk/trace/simple_processor_factory.h"
+#  include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #  include "opentelemetry/trace/provider.h"
 
 #  include <string>
@@ -20,11 +22,12 @@
 #  endif
 
 namespace trace     = opentelemetry::trace;
-namespace nostd     = opentelemetry::nostd;
 namespace otlp      = opentelemetry::exporter::otlp;
 namespace logs_sdk  = opentelemetry::sdk::logs;
 namespace logs      = opentelemetry::logs;
 namespace trace_sdk = opentelemetry::sdk::trace;
+
+namespace internal_log = opentelemetry::sdk::common::internal_log;
 
 namespace
 {
@@ -33,31 +36,49 @@ opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
 void InitTracer()
 {
   // Create OTLP exporter instance
-  auto exporter  = std::unique_ptr<trace_sdk::SpanExporter>(new otlp::OtlpHttpExporter(opts));
-  auto processor = std::unique_ptr<trace_sdk::SpanProcessor>(
-      new trace_sdk::SimpleSpanProcessor(std::move(exporter)));
-  auto provider =
-      nostd::shared_ptr<trace::TracerProvider>(new trace_sdk::TracerProvider(std::move(processor)));
+  auto exporter  = otlp::OtlpHttpExporterFactory::Create(opts);
+  auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
+  std::shared_ptr<opentelemetry::trace::TracerProvider> provider =
+      trace_sdk::TracerProviderFactory::Create(std::move(processor));
   // Set the global trace provider
   trace::Provider::SetTracerProvider(provider);
 }
 
-opentelemetry::exporter::otlp::OtlpHttpLogExporterOptions logger_opts;
+void CleanupTracer()
+{
+  std::shared_ptr<opentelemetry::trace::TracerProvider> none;
+  trace::Provider::SetTracerProvider(none);
+}
+
+opentelemetry::exporter::otlp::OtlpHttpLogRecordExporterOptions logger_opts;
 void InitLogger()
 {
   logger_opts.console_debug = true;
   // Create OTLP exporter instance
-  auto exporter =
-      std::unique_ptr<logs_sdk::LogExporter>(new otlp::OtlpHttpLogExporter(logger_opts));
-  auto sdkProvider = std::shared_ptr<logs_sdk::LoggerProvider>(
-      new logs_sdk::LoggerProvider(std::unique_ptr<logs_sdk::LogProcessor>(
-          new logs_sdk::SimpleLogProcessor(std::move(exporter)))));
-  auto apiProvider = nostd::shared_ptr<logs::LoggerProvider>(sdkProvider);
-  auto provider    = nostd::shared_ptr<logs::LoggerProvider>(apiProvider);
+  auto exporter  = otlp::OtlpHttpLogRecordExporterFactory::Create(logger_opts);
+  auto processor = logs_sdk::SimpleLogRecordProcessorFactory::Create(std::move(exporter));
+  std::shared_ptr<logs::LoggerProvider> provider =
+      logs_sdk::LoggerProviderFactory::Create(std::move(processor));
+
   opentelemetry::logs::Provider::SetLoggerProvider(provider);
+}
+
+void CleanupLogger()
+{
+  std::shared_ptr<logs::LoggerProvider> none;
+  opentelemetry::logs::Provider::SetLoggerProvider(none);
 }
 }  // namespace
 
+/*
+  Usage:
+  - example_otlp_http_log
+  - example_otlp_http_log <URL>
+  - example_otlp_http_log <URL> <DEBUG>
+  - example_otlp_http_log <URL> <DEBUG> <BIN>
+  <DEBUG> = yes|no, to turn console debug on or off
+  <BIN> = bin, to export in binary format
+*/
 int main(int argc, char *argv[])
 {
   if (argc > 1)
@@ -80,9 +101,17 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+  if (opts.console_debug)
+  {
+    internal_log::GlobalLogHandler::SetLogLevel(internal_log::LogLevel::Debug);
+  }
+
   InitLogger();
   InitTracer();
   foo_library();
+  CleanupTracer();
+  CleanupLogger();
 }
 #else
 int main()

@@ -27,7 +27,7 @@ public:
     std::cout << "StartSpan: " << name << "\n";
   }
 
-  ~Span() { std::cout << "~Span\n"; }
+  ~Span() override { std::cout << "~Span\n"; }
 
   // opentelemetry::trace::Span
   void SetAttribute(nostd::string_view /*name*/,
@@ -42,6 +42,10 @@ public:
 
   void AddEvent(nostd::string_view /*name*/,
                 common::SystemTimestamp /*timestamp*/,
+                const common::KeyValueIterable & /*attributes*/) noexcept override
+  {}
+
+  void AddEvent(nostd::string_view /*name*/,
                 const common::KeyValueIterable & /*attributes*/) noexcept override
   {}
 

@@ -9,6 +9,7 @@
 #  include <memory>
 #  include <unordered_map>
 
+#  include "opentelemetry/common/macros.h"
 #  include "opentelemetry/sdk/logs/processor.h"
 #  include "opentelemetry/sdk/logs/recordable.h"
 #  include "opentelemetry/sdk/resource/resource.h"
@@ -22,18 +23,25 @@ namespace logs
 class MultiRecordable final : public Recordable
 {
 public:
-  void AddRecordable(const LogProcessor &processor,
+  void AddRecordable(const LogRecordProcessor &processor,
                      std::unique_ptr<Recordable> recordable) noexcept;
 
-  const std::unique_ptr<Recordable> &GetRecordable(const LogProcessor &processor) const noexcept;
+  const std::unique_ptr<Recordable> &GetRecordable(
+      const LogRecordProcessor &processor) const noexcept;
 
-  std::unique_ptr<Recordable> ReleaseRecordable(const LogProcessor &processor) noexcept;
+  std::unique_ptr<Recordable> ReleaseRecordable(const LogRecordProcessor &processor) noexcept;
 
   /**
    * Set the timestamp for this log.
    * @param timestamp the timestamp to set
    */
   void SetTimestamp(opentelemetry::common::SystemTimestamp timestamp) noexcept override;
+
+  /**
+   * Set the observed timestamp for this log.
+   * @param timestamp the timestamp to set
+   */
+  void SetObservedTimestamp(opentelemetry::common::SystemTimestamp timestamp) noexcept override;
 
   /**
    * Set the severity for this log.
@@ -45,13 +53,25 @@ public:
    * Set body field for this log.
    * @param message the body to set
    */
-  void SetBody(nostd::string_view message) noexcept override;
+  void SetBody(const opentelemetry::common::AttributeValue &message) noexcept override;
 
   /**
-   * Set Resource of this log
-   * @param Resource the resource to set
+   * Set the trace id for this log.
+   * @param trace_id the trace id to set
    */
-  void SetResource(const opentelemetry::sdk::resource::Resource &resource) noexcept override;
+  void SetTraceId(const opentelemetry::trace::TraceId &trace_id) noexcept override;
+
+  /**
+   * Set the span id for this log.
+   * @param span_id the span id to set
+   */
+  void SetSpanId(const opentelemetry::trace::SpanId &span_id) noexcept override;
+
+  /**
+   * Inject trace_flags for this log.
+   * @param trace_flags the trace flags to set
+   */
+  void SetTraceFlags(const opentelemetry::trace::TraceFlags &trace_flags) noexcept override;
 
   /**
    * Set an attribute of a log.
@@ -62,39 +82,20 @@ public:
                     const opentelemetry::common::AttributeValue &value) noexcept override;
 
   /**
-   * Set the trace id for this log.
-   * @param trace_id the trace id to set
+   * Set Resource of this log
+   * @param Resource the resource to set
    */
-  void SetTraceId(opentelemetry::trace::TraceId trace_id) noexcept override;
+  void SetResource(const opentelemetry::sdk::resource::Resource &resource) noexcept override;
 
   /**
-   * Set the span id for this log.
-   * @param span_id the span id to set
+   * Set instrumentation_scope for this log.
+   * @param instrumentation_scope the instrumentation scope to set
    */
-  void SetSpanId(opentelemetry::trace::SpanId span_id) noexcept override;
-
-  /**
-   * Inject trace_flags for this log.
-   * @param trace_flags the trace flags to set
-   */
-  void SetTraceFlags(opentelemetry::trace::TraceFlags trace_flags) noexcept override;
-
-  /**
-   * Set instrumentation_library for this log.
-   * @param instrumentation_library the instrumentation library to set
-   */
-  void SetInstrumentationLibrary(
-      const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-          &instrumentation_library) noexcept override;
-
-  /** Returns the associated instruementation library */
-  const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary &
-  GetInstrumentationLibrary() const noexcept;
+  void SetInstrumentationScope(const opentelemetry::sdk::instrumentationscope::InstrumentationScope
+                                   &instrumentation_scope) noexcept override;
 
 private:
   std::unordered_map<std::size_t, std::unique_ptr<Recordable>> recordables_;
-  const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-      *instrumentation_library_ = nullptr;
 };
 }  // namespace logs
 }  // namespace sdk

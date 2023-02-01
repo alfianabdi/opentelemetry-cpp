@@ -1,7 +1,12 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
+#include <opentelemetry/exporters/jaeger/thrift_include_prefix.h>
+
 #include <agent_types.h>
+
+#include <opentelemetry/exporters/jaeger/thrift_include_suffix.h>
+
 #include <opentelemetry/exporters/jaeger/jaeger_exporter.h>
 #include <opentelemetry/exporters/jaeger/recordable.h>
 #include "opentelemetry/sdk_config.h"
@@ -93,7 +98,7 @@ void JaegerExporter::InitializeEndpoint()
   assert(false);
 }
 
-bool JaegerExporter::Shutdown(std::chrono::microseconds timeout) noexcept
+bool JaegerExporter::Shutdown(std::chrono::microseconds /* timeout */) noexcept
 {
   const std::lock_guard<opentelemetry::common::SpinLockMutex> locked(lock_);
   is_shutdown_ = true;

@@ -18,6 +18,8 @@
 #elif defined(__i386__) || defined(__x86_64__)
 #  if defined(__clang__)
 #    include <emmintrin.h>
+#  elif defined(__INTEL_COMPILER)
+#    include <immintrin.h>
 #  endif
 #endif
 
@@ -59,6 +61,24 @@ public:
   SpinLockMutex &operator=(const SpinLockMutex &) = delete;
   SpinLockMutex &operator=(const SpinLockMutex &) volatile = delete;
 
+  static inline void fast_yield() noexcept
+  {
+// Issue a Pause/Yield instruction while spinning.
+#if defined(_MSC_VER)
+    YieldProcessor();
+#elif defined(__i386__) || defined(__x86_64__)
+#  if defined(__clang__) || defined(__INTEL_COMPILER)
+    _mm_pause();
+#  else
+    __builtin_ia32_pause();
+#  endif
+#elif defined(__arm__)
+    __asm__ volatile("yield" ::: "memory");
+#else
+    // TODO: Issue PAGE/YIELD on other architectures.
+#endif
+  }
+
   /**
    * Attempts to lock the mutex.  Return immediately with `true` (success) or `false` (failure).
    */
@@ -91,20 +111,7 @@ public:
         {
           return;
         }
-// Issue a Pause/Yield instruction while spinning.
-#if defined(_MSC_VER)
-        YieldProcessor();
-#elif defined(__i386__) || defined(__x86_64__)
-#  if defined(__clang__)
-        _mm_pause();
-#  else
-        __builtin_ia32_pause();
-#  endif
-#elif defined(__arm__)
-        __asm__ volatile("yield" ::: "memory");
-#else
-        // TODO: Issue PAGE/YIELD on other architectures.
-#endif
+        fast_yield();
       }
       // Yield then try again (goal ~100ns)
       std::this_thread::yield();

@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
 
-#  include <mutex>
+#include <mutex>
 
-#  include "opentelemetry/common/spin_lock_mutex.h"
-#  include "opentelemetry/metrics/meter_provider.h"
-#  include "opentelemetry/metrics/noop.h"
-#  include "opentelemetry/nostd/shared_ptr.h"
+#include "opentelemetry/common/macros.h"
+#include "opentelemetry/common/spin_lock_mutex.h"
+#include "opentelemetry/metrics/meter_provider.h"
+#include "opentelemetry/metrics/noop.h"
+#include "opentelemetry/nostd/shared_ptr.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace metrics
@@ -42,13 +42,13 @@ public:
   }
 
 private:
-  static nostd::shared_ptr<MeterProvider> &GetProvider() noexcept
+  OPENTELEMETRY_API_SINGLETON static nostd::shared_ptr<MeterProvider> &GetProvider() noexcept
   {
     static nostd::shared_ptr<MeterProvider> provider(new NoopMeterProvider);
     return provider;
   }
 
-  static common::SpinLockMutex &GetLock() noexcept
+  OPENTELEMETRY_API_SINGLETON static common::SpinLockMutex &GetLock() noexcept
   {
     static common::SpinLockMutex lock;
     return lock;
@@ -57,4 +57,3 @@ private:
 
 }  // namespace metrics
 OPENTELEMETRY_END_NAMESPACE
-#endif

@@ -5,6 +5,8 @@
 
 #ifdef ENABLE_LOGS_PREVIEW
 
+#  include <memory>
+
 #  include "opentelemetry/sdk/logs/processor.h"
 #  include "opentelemetry/sdk/resource/resource.h"
 #  include "opentelemetry/version.h"
@@ -30,7 +32,7 @@ namespace logs
 class LoggerContext
 {
 public:
-  explicit LoggerContext(std::vector<std::unique_ptr<LogProcessor>> &&processors,
+  explicit LoggerContext(std::vector<std::unique_ptr<LogRecordProcessor>> &&processors,
                          opentelemetry::sdk::resource::Resource resource =
                              opentelemetry::sdk::resource::Resource::Create({})) noexcept;
 
@@ -42,7 +44,7 @@ public:
    *
    * Note: This method is not thread safe.
    */
-  void AddProcessor(std::unique_ptr<LogProcessor> processor) noexcept;
+  void AddProcessor(std::unique_ptr<LogRecordProcessor> processor) noexcept;
 
   /**
    * Obtain the configured (composite) processor.
@@ -50,7 +52,7 @@ public:
    * Note: When more than one processor is active, this will
    * return an "aggregate" processor
    */
-  LogProcessor &GetProcessor() const noexcept;
+  LogRecordProcessor &GetProcessor() const noexcept;
 
   /**
    * Obtain the resource associated with this tracer context.
@@ -72,7 +74,7 @@ public:
 private:
   //  order of declaration is important here - resource object should be destroyed after processor.
   opentelemetry::sdk::resource::Resource resource_;
-  std::unique_ptr<LogProcessor> processor_;
+  std::unique_ptr<LogRecordProcessor> processor_;
 };
 }  // namespace logs
 }  // namespace sdk

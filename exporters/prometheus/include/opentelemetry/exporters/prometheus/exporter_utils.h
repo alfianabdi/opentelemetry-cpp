@@ -3,14 +3,12 @@
 
 #pragma once
 
-#ifndef ENABLE_METRICS_PREVIEW
-
-#  include <prometheus/metric_family.h>
-#  include <string>
-#  include <vector>
-#  include "opentelemetry/metrics/provider.h"
-#  include "opentelemetry/sdk/metrics/meter.h"
-#  include "opentelemetry/version.h"
+#include <prometheus/metric_family.h>
+#include <string>
+#include <vector>
+#include "opentelemetry/metrics/provider.h"
+#include "opentelemetry/sdk/metrics/meter.h"
+#include "opentelemetry/version.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace exporter
@@ -49,7 +47,8 @@ private:
   /**
    * Translate the OTel metric type to Prometheus metric type
    */
-  static ::prometheus::MetricType TranslateType(opentelemetry::sdk::metrics::AggregationType kind);
+  static ::prometheus::MetricType TranslateType(opentelemetry::sdk::metrics::AggregationType kind,
+                                                bool is_monotonic = true);
 
   /**
    * Set metric data for:
@@ -68,7 +67,7 @@ private:
    */
   template <typename T>
   static void SetData(std::vector<T> values,
-                      const opentelemetry::sdk::metrics::ListType &boundaries,
+                      const std::vector<double> &boundaries,
                       const std::vector<uint64_t> &counts,
                       const opentelemetry::sdk::metrics::PointAttributes &labels,
                       std::chrono::nanoseconds time,
@@ -103,13 +102,12 @@ private:
   /**
    * Handle Histogram
    */
-  template <typename T, typename U>
+  template <typename T>
   static void SetValue(std::vector<T> values,
-                       const std::list<U> &boundaries,
+                       const std::vector<double> &boundaries,
                        const std::vector<uint64_t> &counts,
                        ::prometheus::ClientMetric *metric);
 };
 }  // namespace metrics
 }  // namespace exporter
 OPENTELEMETRY_END_NAMESPACE
-#endif

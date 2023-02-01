@@ -43,10 +43,10 @@ def opentelemetry_cpp_deps():
     maybe(
         http_archive,
         name = "com_google_googletest",
-        sha256 = "a03a7b24b3a0766dc823c9008dd32c56a1183889c04f084653266af22289ab0c",
-        strip_prefix = "googletest-a6dfd3aca7f2f91f95fc7ab650c95a48420d513d",
+        sha256 = "81964fe578e9bd7c94dfdb09c8e4d6e6759e19967e397dbea48d1c10e45d0df2",
+        strip_prefix = "googletest-release-1.12.1",
         urls = [
-            "https://github.com/google/googletest/archive/a6dfd3aca7f2f91f95fc7ab650c95a48420d513d.tar.gz",
+            "https://github.com/google/googletest/archive/release-1.12.1.tar.gz",
         ],
     )
 
@@ -54,10 +54,10 @@ def opentelemetry_cpp_deps():
     maybe(
         http_archive,
         name = "com_google_absl",
-        sha256 = "dd7db6815204c2a62a2160e32c55e97113b0a0178b2f090d6bab5ce36111db4b",
-        strip_prefix = "abseil-cpp-20210324.0",
+        sha256 = "91ac87d30cc6d79f9ab974c51874a704de9c2647c40f6932597329a282217ba8",
+        strip_prefix = "abseil-cpp-20220623.1",
         urls = [
-            "https://github.com/abseil/abseil-cpp/archive/20210324.0.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
         ],
     )
 
@@ -74,11 +74,21 @@ def opentelemetry_cpp_deps():
 
     maybe(
         http_archive,
-        name = "com_github_grpc_grpc",
-        sha256 = "b74ce7d26fe187970d1d8e2c06a5d3391122f7bc1fdce569aff5e435fb8fe780",
-        strip_prefix = "grpc-1.43.2",
+        name = "com_github_grpc_grpc_latest11",
+        sha256 = "e266aa0d9d9cddb876484a370b94f468248594a96ca0b6f87c21f969db2b8c5b",
+        strip_prefix = "grpc-1.46.4",
         urls = [
-            "https://github.com/grpc/grpc/archive/v1.43.2.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.46.4.tar.gz",
+        ],
+    )
+
+    maybe(
+        http_archive,
+        name = "com_github_grpc_grpc",
+        sha256 = "cdeb805385fba23242bf87073e68d590c446751e09089f26e5e0b3f655b0f089",
+        strip_prefix = "grpc-1.49.2",
+        urls = [
+            "https://github.com/grpc/grpc/archive/v1.49.2.tar.gz",
         ],
     )
 
@@ -87,10 +97,10 @@ def opentelemetry_cpp_deps():
         http_archive,
         name = "com_github_opentelemetry_proto",
         build_file = "@io_opentelemetry_cpp//bazel:opentelemetry_proto.BUILD",
-        sha256 = "f269fbcb30e17b03caa1decd231ce826e59d7651c0f71c3b28eb5140b4bb5412",
-        strip_prefix = "opentelemetry-proto-0.17.0",
+        sha256 = "464bc2b348e674a1a03142e403cbccb01be8655b6de0f8bfe733ea31fcd421be",
+        strip_prefix = "opentelemetry-proto-0.19.0",
         urls = [
-            "https://github.com/open-telemetry/opentelemetry-proto/archive/v0.17.0.tar.gz",
+            "https://github.com/open-telemetry/opentelemetry-proto/archive/v0.19.0.tar.gz",
         ],
     )
 
@@ -113,6 +123,17 @@ def opentelemetry_cpp_deps():
         strip_prefix = "prometheus-cpp-1.0.0",
         urls = [
             "https://github.com/jupp0r/prometheus-cpp/archive/refs/tags/v1.0.0.tar.gz",
+        ],
+    )
+
+    # bazel platforms
+    maybe(
+        http_archive,
+        name = "platforms",
+        sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
         ],
     )
 

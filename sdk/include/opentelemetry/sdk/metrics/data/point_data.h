@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/common/timestamp.h"
-#  include "opentelemetry/nostd/variant.h"
-#  include "opentelemetry/sdk/metrics/instruments.h"
-#  include "opentelemetry/version.h"
 
-#  include <list>
+#include "opentelemetry/common/timestamp.h"
+#include "opentelemetry/nostd/variant.h"
+#include "opentelemetry/sdk/metrics/instruments.h"
+#include "opentelemetry/version.h"
+
+#include <vector>
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -16,8 +16,7 @@ namespace sdk
 namespace metrics
 {
 
-using ValueType = nostd::variant<long, double>;
-using ListType  = nostd::variant<std::list<long>, std::list<double>>;
+using ValueType = nostd::variant<int64_t, double>;
 
 // TODO: remove ctors and initializers from below classes when GCC<5 stops shipping on Ubuntu
 
@@ -30,7 +29,8 @@ public:
   SumPointData &operator=(SumPointData &&) = default;
   SumPointData()                           = default;
 
-  ValueType value_ = {};
+  ValueType value_   = {};
+  bool is_monotonic_ = true;
 };
 
 class LastValuePointData
@@ -55,11 +55,14 @@ public:
   HistogramPointData &operator=(HistogramPointData &&) = default;
   HistogramPointData(const HistogramPointData &)       = default;
   HistogramPointData()                                 = default;
-
-  ListType boundaries_          = {};
-  ValueType sum_                = {};
-  std::vector<uint64_t> counts_ = {};
-  uint64_t count_               = {};
+  HistogramPointData(std::vector<double> &boundaries) : boundaries_(boundaries) {}
+  std::vector<double> boundaries_ = {};
+  ValueType sum_                  = {};
+  ValueType min_                  = {};
+  ValueType max_                  = {};
+  std::vector<uint64_t> counts_   = {};
+  uint64_t count_                 = {};
+  bool record_min_max_            = true;
 };
 
 class DropPointData
@@ -75,4 +78,3 @@ public:
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

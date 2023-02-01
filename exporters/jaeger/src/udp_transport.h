@@ -6,7 +6,12 @@
 #include "TUDPTransport.h"
 #include "transport.h"
 
+#include <opentelemetry/exporters/jaeger/thrift_include_prefix.h>
+
 #include <Agent.h>
+
+#include <opentelemetry/exporters/jaeger/thrift_include_suffix.h>
+
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/protocol/TProtocol.h>
@@ -35,7 +40,7 @@ public:
   static constexpr auto kUDPPacketMaxLength = 65000;
 
   UDPTransport(const std::string &addr, uint16_t port);
-  virtual ~UDPTransport();
+  ~UDPTransport() override;
 
   int EmitBatch(const thrift::Batch &batch) override;
 

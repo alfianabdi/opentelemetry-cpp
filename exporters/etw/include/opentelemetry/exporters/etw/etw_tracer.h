@@ -26,18 +26,21 @@
 
 #include "opentelemetry/common/key_value_iterable_view.h"
 
-#include "opentelemetry/trace/span.h"
+#include "opentelemetry/trace/noop.h"
 #include "opentelemetry/trace/span_context_kv_iterable_view.h"
 #include "opentelemetry/trace/span_id.h"
 #include "opentelemetry/trace/trace_id.h"
 #include "opentelemetry/trace/tracer_provider.h"
 
 #include "opentelemetry/sdk/trace/exporter.h"
+#include "opentelemetry/sdk/trace/samplers/always_on.h"
 
 #include "opentelemetry/exporters/etw/etw_config.h"
 #include "opentelemetry/exporters/etw/etw_fields.h"
 #include "opentelemetry/exporters/etw/etw_properties.h"
 #include "opentelemetry/exporters/etw/etw_provider.h"
+#include "opentelemetry/exporters/etw/etw_random_id_generator.h"
+#include "opentelemetry/exporters/etw/etw_tail_sampler.h"
 #include "opentelemetry/exporters/etw/utils.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
@@ -62,9 +65,10 @@ class Span;
 template <class SpanType, class TracerType>
 SpanType *new_span(TracerType *objPtr,
                    nostd::string_view name,
-                   const opentelemetry::trace::StartSpanOptions &options)
+                   const opentelemetry::trace::StartSpanOptions &options,
+                   std::unique_ptr<opentelemetry::trace::SpanContext> spanContext)
 {
-  return new (std::nothrow) SpanType{*objPtr, name, options};
+  return new (std::nothrow) SpanType{*objPtr, name, options, std::move(spanContext)};
 }
 
 /**
@@ -154,7 +158,9 @@ void UpdateStatus(T &t, Properties &props)
 /**
  * @brief Tracer class that allows to send spans to ETW Provider.
  */
-class Tracer : public opentelemetry::trace::Tracer
+
+class Tracer : public opentelemetry::trace::Tracer,
+               public std::enable_shared_from_this<trace::Tracer>
 {
 
   /**
@@ -230,9 +236,17 @@ class Tracer : public opentelemetry::trace::Tracer
                        const opentelemetry::trace::Span *parentSpan = nullptr,
                        const opentelemetry::trace::EndSpanOptions & = {})
   {
-    const auto &cfg = GetConfiguration(tracerProvider_);
+    const auto &cfg          = GetConfiguration(tracerProvider_);
+    const auto &tail_sampler = GetTailSampler(tracerProvider_);
     const opentelemetry::trace::Span &spanBase =
         reinterpret_cast<const opentelemetry::trace::Span &>(span);
+
+    //  Sample span based on the decision of tail based sampler
+    auto sampling_result = const_cast<TailSampler *>(&tail_sampler)->ShouldSample(spanBase);
+    if (!sampling_result.IsRecording() || !sampling_result.IsSampled())
+    {
+      return;
+    }
     auto spanContext = spanBase.GetContext();
 
     // Populate Span with presaved attributes
@@ -297,25 +311,25 @@ class Tracer : public opentelemetry::trace::Tracer
       // local time, but rather UTC time (Z=0).
       std::chrono::system_clock::time_point startTime = GetStartTime(currentSpan);
       std::chrono::system_clock::time_point endTime   = GetEndTime(currentSpan);
-      int64_t startTimeMs =
-          std::chrono::duration_cast<std::chrono::milliseconds>(startTime.time_since_epoch())
+      int64_t startTimeNs =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(startTime.time_since_epoch())
               .count();
-      int64_t endTimeMs =
-          std::chrono::duration_cast<std::chrono::milliseconds>(endTime.time_since_epoch()).count();
+      int64_t endTimeNs =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(endTime.time_since_epoch()).count();
 
-      // It may be more optimal to enable passing timestamps as UTC milliseconds
+      // It may be more optimal to enable passing timestamps as UTC nanoseconds
       // since Unix epoch instead of string, but that implies additional tooling
       // is needed to convert it, rendering it NOT human-readable.
-      evt[ETW_FIELD_STARTTIME] = utils::formatUtcTimestampMsAsISO8601(startTimeMs);
+      evt[ETW_FIELD_STARTTIME] = utils::formatUtcTimestampNsAsISO8601(startTimeNs);
 #ifdef ETW_FIELD_ENDTTIME
       // ETW has its own precise timestamp at envelope layer for every event.
       // However, in some scenarios it is easier to deal with ISO8601 strings.
       // In that case we convert the app-created timestamp and place it into
       // Payload[$ETW_FIELD_TIME] field. The option configurable at compile-time.
-      evt[ETW_FIELD_ENDTTIME] = utils::formatUtcTimestampMsAsISO8601(endTimeMs);
+      evt[ETW_FIELD_ENDTTIME] = utils::formatUtcTimestampNsAsISO8601(endTimeNs);
 #endif
-      // Duration of Span in milliseconds
-      evt[ETW_FIELD_DURATION] = endTimeMs - startTimeMs;
+      // Duration of Span in nanoseconds
+      evt[ETW_FIELD_DURATION] = endTimeNs - startTimeNs;
       // Presently we assume that all spans are server spans
       evt[ETW_FIELD_SPAN_KIND] = uint32_t(opentelemetry::trace::SpanKind::kServer);
       UpdateStatus(currentSpan, evt);
@@ -353,14 +367,7 @@ public:
         encoding(encoding),
         provHandle(initProvHandle())
   {
-    // Generate random GUID
-    GUID trace_id;
-    CoCreateGuid(&trace_id);
-    // Populate TraceId of the Tracer with the above GUID
-    const auto *traceIdPtr = reinterpret_cast<const uint8_t *>(std::addressof(trace_id));
-    nostd::span<const uint8_t, opentelemetry::trace::TraceId::kSize> traceIdBytes(
-        traceIdPtr, traceIdPtr + opentelemetry::trace::TraceId::kSize);
-    traceId_ = opentelemetry::trace::TraceId(traceIdBytes);
+    traceId_ = GetIdGenerator(tracerProvider_).GenerateTraceId();
   }
 
   /**
@@ -377,7 +384,13 @@ public:
       const opentelemetry::trace::SpanContextKeyValueIterable &links,
       const opentelemetry::trace::StartSpanOptions &options = {}) noexcept override
   {
-#ifdef OPENTELEMETRY_RTTI_ENABLED
+    // If RTTI is enabled by compiler, the below code modifies the attributes object passed as arg,
+    // which is sometime not desirable, set OPENTELEMETRY_NOT_USE_RTTI in application
+    // to avoid using RTTI in that case in below set of code.
+#if !defined OPENTELEMETRY_RTTI_ENABLED || defined OPENTELEMETRY_NOT_USE_RTTI
+    Properties evtCopy = attributes;
+    return StartSpan(name, evtCopy, links, options);
+#else  // OPENTELEMETRY_RTTI_ENABLED is defined
     common::KeyValueIterable &attribs = const_cast<common::KeyValueIterable &>(attributes);
     Properties *evt                   = dynamic_cast<Properties *>(&attribs);
     if (evt != nullptr)
@@ -385,9 +398,9 @@ public:
       // Pass as a reference to original modifyable collection without creating a copy
       return StartSpan(name, *evt, links, options);
     }
-#endif
     Properties evtCopy = attributes;
     return StartSpan(name, evtCopy, links, options);
+#endif
   }
 
   /**
@@ -412,11 +425,41 @@ public:
     opentelemetry::trace::SpanContext parentContext = GetCurrentSpan()->GetContext();
     if (nostd::holds_alternative<opentelemetry::trace::SpanContext>(options.parent))
     {
-      auto span_context = nostd::get<opentelemetry::trace::SpanContext>(options.parent);
-      if (span_context.IsValid())
+      auto spanContext = nostd::get<opentelemetry::trace::SpanContext>(options.parent);
+      if (spanContext.IsValid())
       {
-        parentContext = span_context;
+        parentContext = spanContext;
       }
+    }
+    auto traceId = parentContext.IsValid() ? parentContext.trace_id() : traceId_;
+
+    // Sampling based on attributes is not supported for now, so passing empty below.
+    std::map<std::string, int> emptyAttributes = {{}};
+    opentelemetry::sdk::trace::SamplingResult sampling_result =
+        GetSampler(tracerProvider_)
+            .ShouldSample(parentContext, traceId, name, options.kind,
+                          opentelemetry::common::KeyValueIterableView<std::map<std::string, int>>(
+                              emptyAttributes),
+                          links);
+
+    opentelemetry::trace::TraceFlags traceFlags =
+        sampling_result.decision == opentelemetry::sdk::trace::Decision::DROP
+            ? opentelemetry::trace::TraceFlags{}
+            : opentelemetry::trace::TraceFlags{opentelemetry::trace::TraceFlags::kIsSampled};
+
+    auto spanContext =
+        std::unique_ptr<opentelemetry::trace::SpanContext>(new opentelemetry::trace::SpanContext(
+            traceId, GetIdGenerator(tracerProvider_).GenerateSpanId(), traceFlags, false,
+            sampling_result.trace_state
+                ? sampling_result.trace_state
+                : parentContext.IsValid() ? parentContext.trace_state()
+                                          : opentelemetry::trace::TraceState::GetDefault()));
+
+    if (sampling_result.decision == sdk::trace::Decision::DROP)
+    {
+      auto noopSpan = nostd::shared_ptr<trace::Span>{
+          new (std::nothrow) trace::NoopSpan(this->shared_from_this(), std::move(spanContext))};
+      return noopSpan;
     }
 
     // Populate Etw.RelatedActivityId at envelope level if enabled
@@ -435,10 +478,8 @@ public:
 
     // This template pattern allows us to forward-declare the etw::Span,
     // create an instance of it, then assign it to tracer::Span result.
-    auto currentSpan = new_span<Span, Tracer>(this, name, options);
+    auto currentSpan = new_span<Span, Tracer>(this, name, options, std::move(spanContext));
     nostd::shared_ptr<opentelemetry::trace::Span> result = to_span_ptr<Span>(currentSpan);
-
-    auto spanContext = result->GetContext();
 
     // Decorate with additional standard fields
     std::string eventName = name.data();
@@ -454,13 +495,13 @@ public:
       {
         evt[ETW_FIELD_SPAN_PARENTID] = ToLowerBase16(parentContext.span_id());
       }
-      evt[ETW_FIELD_SPAN_ID] = ToLowerBase16(spanContext.span_id());
+      evt[ETW_FIELD_SPAN_ID] = ToLowerBase16(result.get()->GetContext().span_id());
     }
 
     // Populate Etw.Payload["TraceId"] attribute
     if (cfg.enableTraceId)
     {
-      evt[ETW_FIELD_TRACE_ID] = ToLowerBase16(spanContext.trace_id());
+      evt[ETW_FIELD_TRACE_ID] = ToLowerBase16(result.get()->GetContext().trace_id());
     }
 
     // Populate Etw.ActivityId at envelope level if enabled
@@ -531,7 +572,14 @@ public:
                 common::SystemTimestamp timestamp,
                 const common::KeyValueIterable &attributes) noexcept
   {
-#ifdef OPENTELEMETRY_RTTI_ENABLED
+    // If RTTI is enabled by compiler, the below code modifies the attributes object passed as arg,
+    // which is sometime not desirable, set OPENTELEMETRY_NOT_USE_RTTI in application
+    // to avoid using RTTI in that case in below set of code.
+#if !defined OPENTELEMETRY_RTTI_ENABLED || defined OPENTELEMETRY_NOT_USE_RTTI
+    // Pass a copy converted to Properties object on stack
+    Properties evtCopy = attributes;
+    return AddEvent(span, name, timestamp, evtCopy);
+#else  // OPENTELEMETRY_RTTI_ENABLED is defined
     common::KeyValueIterable &attribs = const_cast<common::KeyValueIterable &>(attributes);
     Properties *evt                   = dynamic_cast<Properties *>(&attribs);
     if (evt != nullptr)
@@ -539,10 +587,9 @@ public:
       // Pass as a reference to original modifyable collection without creating a copy
       return AddEvent(span, name, timestamp, *evt);
     }
-#endif
-    // Pass a copy converted to Properties object on stack
     Properties evtCopy = attributes;
     return AddEvent(span, name, timestamp, evtCopy);
+#endif
   }
 
   /**
@@ -596,8 +643,8 @@ public:
 #ifdef HAVE_FIELD_TIME
     {
       auto timeNow        = std::chrono::system_clock::now().time_since_epoch();
-      auto millis         = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow).count();
-      evt[ETW_FIELD_TIME] = utils::formatUtcTimestampMsAsISO8601(millis);
+      auto nanosecs       = std::chrono::duration_cast<std::chrono::nanoseconds>(timeNow).count();
+      evt[ETW_FIELD_TIME] = utils::formatUtcTimestampNsAsISO8601(nanosecs);
     }
 #endif
 
@@ -684,28 +731,7 @@ protected:
    */
   Span *GetParent() const { return parent_; }
 
-  opentelemetry::trace::SpanContext context_;
-
-  const opentelemetry::trace::SpanContext CreateContext()
-  {
-    GUID activity_id;
-    // Generate random GUID
-    CoCreateGuid(&activity_id);
-    const auto *activityIdPtr = reinterpret_cast<const uint8_t *>(std::addressof(activity_id));
-
-    // Populate SpanId with that GUID
-    nostd::span<const uint8_t, opentelemetry::trace::SpanId::kSize> spanIdBytes(
-        activityIdPtr, activityIdPtr + opentelemetry::trace::SpanId::kSize);
-    const opentelemetry::trace::SpanId spanId(spanIdBytes);
-
-    // Inherit trace_id from Tracer
-    const opentelemetry::trace::TraceId traceId{owner_.trace_id()};
-    // TODO: TraceFlags are not supported by ETW exporter.
-    const opentelemetry::trace::TraceFlags flags{0};
-    // TODO: Remote parent is not supported by ETW exporter.
-    const bool hasRemoteParent = false;
-    return opentelemetry::trace::SpanContext{traceId, spanId, flags, hasRemoteParent};
-  }
+  std::unique_ptr<opentelemetry::trace::SpanContext> context_;
 
 public:
   /**
@@ -759,12 +785,13 @@ public:
   Span(Tracer &owner,
        nostd::string_view name,
        const opentelemetry::trace::StartSpanOptions &options,
+       std::unique_ptr<opentelemetry::trace::SpanContext> spanContext,
        Span *parent = nullptr) noexcept
       : opentelemetry::trace::Span(),
         start_time_(std::chrono::system_clock::now()),
         owner_(owner),
-        parent_(parent),
-        context_(CreateContext())
+        context_(std::move(spanContext)),
+        parent_(parent)
   {
     name_ = name;
     UNREFERENCED_PARAMETER(options);
@@ -820,6 +847,8 @@ public:
     status_description_ = description.data();
   }
 
+  opentelemetry::trace::StatusCode GetStatus() { return status_code_; }
+
   void SetAttributes(Properties attributes) { attributes_ = attributes; }
 
   /**
@@ -870,7 +899,17 @@ public:
    */
   void End(const opentelemetry::trace::EndSpanOptions &options = {}) noexcept override
   {
-    end_time_ = std::chrono::system_clock::now();
+    // TODO - explicitly setting end_time as 0 is not supported, and would be changed to
+    // current_time.
+    if (options.end_steady_time.time_since_epoch().count() == 0)
+    {
+      end_time_ = std::chrono::system_clock::now();
+    }
+    else
+    {
+      end_time_ =
+          opentelemetry::common::SystemTimestamp(options.end_steady_time.time_since_epoch());
+    }
 
     if (!has_ended_.exchange(true))
     {
@@ -882,7 +921,7 @@ public:
    * @brief Obtain SpanContext
    * @return
    */
-  opentelemetry::trace::SpanContext GetContext() const noexcept override { return context_; }
+  opentelemetry::trace::SpanContext GetContext() const noexcept override { return *context_.get(); }
 
   /**
    * @brief Check if Span is recording data.
@@ -921,10 +960,40 @@ public:
   TelemetryProviderConfiguration config_;
 
   /**
+   * @brief Sampler configured
+   *
+   */
+  std::unique_ptr<sdk::trace::Sampler> sampler_;
+
+  /**
+   * @brief Sampler configured
+   *
+   */
+  std::unique_ptr<opentelemetry::exporter::etw::TailSampler> tail_sampler_;
+
+  /**
+   * @brief IdGenerator for trace_id and span_id
+   *
+   */
+  std::unique_ptr<sdk::trace::IdGenerator> id_generator_;
+
+  /**
    * @brief Construct instance of TracerProvider with given options
    * @param options Configuration options
    */
-  TracerProvider(TelemetryProviderOptions options) : opentelemetry::trace::TracerProvider()
+  TracerProvider(
+      TelemetryProviderOptions options,
+      std::unique_ptr<sdk::trace::Sampler> sampler =
+          std::unique_ptr<sdk::trace::AlwaysOnSampler>(new sdk::trace::AlwaysOnSampler),
+      std::unique_ptr<sdk::trace::IdGenerator> id_generator =
+          std::unique_ptr<opentelemetry::sdk::trace::IdGenerator>(
+              new sdk::trace::ETWRandomIdGenerator()),
+      std::unique_ptr<opentelemetry::exporter::etw::TailSampler> tail_sampler =
+          std::unique_ptr<opentelemetry::exporter::etw::TailSampler>(new AlwaysOnTailSampler()))
+      : opentelemetry::trace::TracerProvider(),
+        sampler_{std::move(sampler)},
+        id_generator_{std::move(id_generator)},
+        tail_sampler_{std::move(tail_sampler)}
   {
     // By default we ensure that all events carry their with TraceId and SpanId
     GetOption(options, "enableTraceId", config_.enableTraceId, true);
@@ -955,7 +1024,13 @@ public:
     config_.encoding = GetEncoding(options);
   }
 
-  TracerProvider() : opentelemetry::trace::TracerProvider()
+  TracerProvider()
+      : opentelemetry::trace::TracerProvider(),
+        sampler_{std::unique_ptr<sdk::trace::AlwaysOnSampler>(new sdk::trace::AlwaysOnSampler)},
+        id_generator_{std::unique_ptr<opentelemetry::sdk::trace::IdGenerator>(
+            new sdk::trace::ETWRandomIdGenerator())},
+        tail_sampler_{
+            std::unique_ptr<opentelemetry::exporter::etw::TailSampler>(new AlwaysOnTailSampler())}
   {
     config_.enableTraceId           = true;
     config_.enableSpanId            = true;
@@ -985,8 +1060,9 @@ public:
     UNREFERENCED_PARAMETER(args);
     UNREFERENCED_PARAMETER(schema_url);
     ETWProvider::EventFormat evtFmt = config_.encoding;
-    return nostd::shared_ptr<opentelemetry::trace::Tracer>{new (std::nothrow)
-                                                               Tracer(*this, name, evtFmt)};
+    std::shared_ptr<opentelemetry::trace::Tracer> tracer{new (std::nothrow)
+                                                             Tracer(*this, name, evtFmt)};
+    return nostd::shared_ptr<opentelemetry::trace::Tracer>{tracer};
   }
 };
 

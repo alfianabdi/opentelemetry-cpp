@@ -1,9 +1,11 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#include "opentelemetry/exporters/otlp/otlp_http_exporter.h"
-#include "opentelemetry/sdk/trace/simple_processor.h"
-#include "opentelemetry/sdk/trace/tracer_provider.h"
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_factory.h"
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_options.h"
+#include "opentelemetry/sdk/common/global_log_handler.h"
+#include "opentelemetry/sdk/trace/simple_processor_factory.h"
+#include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #include "opentelemetry/trace/provider.h"
 
 #include <string>
@@ -15,9 +17,10 @@
 #endif
 
 namespace trace     = opentelemetry::trace;
-namespace nostd     = opentelemetry::nostd;
 namespace trace_sdk = opentelemetry::sdk::trace;
 namespace otlp      = opentelemetry::exporter::otlp;
+
+namespace internal_log = opentelemetry::sdk::common::internal_log;
 
 namespace
 {
@@ -25,16 +28,30 @@ opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
 void InitTracer()
 {
   // Create OTLP exporter instance
-  auto exporter  = std::unique_ptr<trace_sdk::SpanExporter>(new otlp::OtlpHttpExporter(opts));
-  auto processor = std::unique_ptr<trace_sdk::SpanProcessor>(
-      new trace_sdk::SimpleSpanProcessor(std::move(exporter)));
-  auto provider =
-      nostd::shared_ptr<trace::TracerProvider>(new trace_sdk::TracerProvider(std::move(processor)));
+  auto exporter  = otlp::OtlpHttpExporterFactory::Create(opts);
+  auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
+  std::shared_ptr<opentelemetry::trace::TracerProvider> provider =
+      trace_sdk::TracerProviderFactory::Create(std::move(processor));
   // Set the global trace provider
   trace::Provider::SetTracerProvider(provider);
 }
+
+void CleanupTracer()
+{
+  std::shared_ptr<opentelemetry::trace::TracerProvider> none;
+  trace::Provider::SetTracerProvider(none);
+}
 }  // namespace
 
+/*
+  Usage:
+  - example_otlp_http
+  - example_otlp_http <URL>
+  - example_otlp_http <URL> <DEBUG>
+  - example_otlp_http <URL> <DEBUG> <BIN>
+  <DEBUG> = yes|no, to turn console debug on or off
+  <BIN> = bin, to export in binary format
+*/
 int main(int argc, char *argv[])
 {
   if (argc > 1)
@@ -55,8 +72,16 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+  if (opts.console_debug)
+  {
+    internal_log::GlobalLogHandler::SetLogLevel(internal_log::LogLevel::Debug);
+  }
+
   // Removing this line will leave the default noop TracerProvider in place.
   InitTracer();
 
   foo_library();
+
+  CleanupTracer();
 }

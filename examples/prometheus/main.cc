@@ -1,25 +1,23 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ENABLE_METRICS_PREVIEW
-#  include <memory>
-#  include <thread>
-#  include "opentelemetry/exporters/prometheus/exporter.h"
-#  include "opentelemetry/metrics/provider.h"
-#  include "opentelemetry/sdk/metrics/aggregation/default_aggregation.h"
-#  include "opentelemetry/sdk/metrics/aggregation/histogram_aggregation.h"
-#  include "opentelemetry/sdk/metrics/export/periodic_exporting_metric_reader.h"
-#  include "opentelemetry/sdk/metrics/meter.h"
-#  include "opentelemetry/sdk/metrics/meter_provider.h"
+#include <memory>
+#include <thread>
+#include "opentelemetry/exporters/prometheus/exporter.h"
+#include "opentelemetry/metrics/provider.h"
+#include "opentelemetry/sdk/metrics/aggregation/default_aggregation.h"
+#include "opentelemetry/sdk/metrics/aggregation/histogram_aggregation.h"
+#include "opentelemetry/sdk/metrics/export/periodic_exporting_metric_reader.h"
+#include "opentelemetry/sdk/metrics/meter.h"
+#include "opentelemetry/sdk/metrics/meter_provider.h"
 
-#  ifdef BAZEL_BUILD
-#    include "examples/common/metrics_foo_library/foo_library.h"
-#  else
-#    include "metrics_foo_library/foo_library.h"
-#  endif
+#ifdef BAZEL_BUILD
+#  include "examples/common/metrics_foo_library/foo_library.h"
+#else
+#  include "metrics_foo_library/foo_library.h"
+#endif
 
 namespace metrics_sdk      = opentelemetry::sdk::metrics;
-namespace nostd            = opentelemetry::nostd;
 namespace common           = opentelemetry::common;
 namespace metrics_exporter = opentelemetry::exporter::metrics;
 namespace metrics_api      = opentelemetry::metrics;
@@ -27,7 +25,7 @@ namespace metrics_api      = opentelemetry::metrics;
 namespace
 {
 
-void initMetrics(const std::string &name, const std::string &addr)
+void InitMetrics(const std::string &name, const std::string &addr)
 {
   metrics_exporter::PrometheusExporterOptions opts;
   if (!addr.empty())
@@ -36,7 +34,7 @@ void initMetrics(const std::string &name, const std::string &addr)
   }
   std::puts("PrometheusExporter example program running ...");
 
-  std::unique_ptr<metrics_sdk::MetricExporter> exporter{
+  std::unique_ptr<metrics_sdk::PushMetricExporter> exporter{
       new metrics_exporter::PrometheusExporter(opts)};
 
   std::string version{"1.2.0"};
@@ -74,6 +72,12 @@ void initMetrics(const std::string &name, const std::string &addr)
              std::move(histogram_view));
   metrics_api::Provider::SetMeterProvider(provider);
 }
+
+void CleanupMetrics()
+{
+  std::shared_ptr<metrics_api::MeterProvider> none;
+  metrics_api::Provider::SetMeterProvider(none);
+}
 }  // namespace
 
 int main(int argc, char **argv)
@@ -95,7 +99,7 @@ int main(int argc, char **argv)
   }
 
   std::string name{"prometheus_metric_example"};
-  initMetrics(name, addr);
+  InitMetrics(name, addr);
 
   if (example_type == "counter")
   {
@@ -112,7 +116,6 @@ int main(int argc, char **argv)
     counter_example.join();
     histogram_example.join();
   }
+
+  CleanupMetrics();
 }
-#else
-int main() {}
-#endif

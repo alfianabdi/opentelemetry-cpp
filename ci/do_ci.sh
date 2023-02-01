@@ -25,7 +25,7 @@ function run_benchmarks
 
   [ -z "${BENCHMARK_DIR}" ] && export BENCHMARK_DIR=$HOME/benchmark
   mkdir -p $BENCHMARK_DIR
-  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS -c opt -- \
+  bazel $BAZEL_STARTUP_OPTIONS build --cxxopt=-std=c++14 $BAZEL_OPTIONS_ASYNC -c opt -- \
     $(bazel query 'attr("tags", "benchmark_result", ...)')
   echo ""
   echo "Benchmark results in $BENCHMARK_DIR:"
@@ -59,15 +59,16 @@ mkdir -p "${BUILD_DIR}"
 [ -z "${PLUGIN_DIR}" ] && export PLUGIN_DIR=$HOME/plugin
 mkdir -p "${PLUGIN_DIR}"
 
-BAZEL_OPTIONS="--copt=-DENABLE_LOGS_PREVIEW --copt=-DENABLE_TEST"
-# Previous legacy metrics use virtual drive, which can not be used without RTTI
-if [[ "$1" != "bazel.nortti" ]]; then
-  BAZEL_OPTIONS="$BAZEL_OPTIONS --copt=-DENABLE_METRICS_PREVIEW"
-fi
+BAZEL_OPTIONS_DEFAULT="--copt=-DENABLE_LOGS_PREVIEW --copt=-DENABLE_TEST --copt=-DENABLE_METRICS_EXEMPLAR_PREVIEW"
+BAZEL_OPTIONS="--cxxopt=-std=c++14 $BAZEL_OPTIONS_DEFAULT"
+
 BAZEL_TEST_OPTIONS="$BAZEL_OPTIONS --test_output=errors"
 
+BAZEL_OPTIONS_ASYNC="$BAZEL_OPTIONS --copt=-DENABLE_ASYNC_EXPORT"
+BAZEL_TEST_OPTIONS_ASYNC="$BAZEL_OPTIONS_ASYNC --test_output=errors"
+
 # https://github.com/bazelbuild/bazel/issues/4341
-BAZEL_MACOS_OPTIONS="$BAZEL_OPTIONS --features=-supports_dynamic_linker --build_tag_filters=-jaeger"
+BAZEL_MACOS_OPTIONS="$BAZEL_OPTIONS_ASYNC --features=-supports_dynamic_linker --build_tag_filters=-jaeger"
 BAZEL_MACOS_TEST_OPTIONS="$BAZEL_MACOS_OPTIONS --test_output=errors"
 
 BAZEL_STARTUP_OPTIONS="--output_user_root=$HOME/.cache/bazel"
@@ -82,9 +83,45 @@ if [[ "$1" == "cmake.test" ]]; then
         -DWITH_ZIPKIN=ON \
         -DWITH_JAEGER=ON \
         -DWITH_ELASTICSEARCH=ON \
-        -DWITH_METRICS_PREVIEW=ON \
+        -DWITH_METRICS_EXEMPLAR_PREVIEW=ON \
         -DWITH_LOGS_PREVIEW=ON \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
+        "${SRC_DIR}"
+  make
+  make test
+  exit 0
+elif [[ "$1" == "cmake.maintainer.test" ]]; then
+  cd "${BUILD_DIR}"
+  rm -rf *
+  cmake -DCMAKE_BUILD_TYPE=Debug  \
+        -DWITH_PROMETHEUS=ON \
+        -DWITH_EXAMPLES=ON \
+        -DWITH_EXAMPLES_HTTP=ON \
+        -DWITH_ZIPKIN=ON \
+        -DWITH_JAEGER=OFF \
+        -DBUILD_W3CTRACECONTEXT_TEST=ON \
+        -DWITH_ELASTICSEARCH=ON \
+        -DWITH_LOGS_PREVIEW=ON \
+        -DWITH_METRICS_EXEMPLAR_PREVIEW=ON \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
+        -DOTELCPP_MAINTAINER_MODE=ON \
+        -DWITH_NO_DEPRECATED_CODE=ON \
+        "${SRC_DIR}"
+  make -k
+  make test
+  exit 0
+elif [[ "$1" == "cmake.with_async_export.test" ]]; then
+  cd "${BUILD_DIR}"
+  rm -rf *
+  cmake -DCMAKE_BUILD_TYPE=Debug  \
+        -DWITH_PROMETHEUS=ON \
+        -DWITH_ZIPKIN=ON \
+        -DWITH_JAEGER=ON \
+        -DWITH_ELASTICSEARCH=ON \
+        -DWITH_METRICS_EXEMPLAR_PREVIEW=ON \
+        -DWITH_LOGS_PREVIEW=ON \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         "${SRC_DIR}"
   make
   make test
@@ -93,9 +130,10 @@ elif [[ "$1" == "cmake.abseil.test" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DWITH_METRICS_PREVIEW=ON \
+        -DWITH_METRICS_EXEMPLAR_PREVIEW=ON \
         -DWITH_LOGS_PREVIEW=ON \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         -DWITH_ABSEIL=ON \
         "${SRC_DIR}"
   make
@@ -105,7 +143,8 @@ elif [[ "$1" == "cmake.c++20.test" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         -DCMAKE_CXX_STANDARD=20 \
         "${SRC_DIR}"
   make
@@ -115,9 +154,10 @@ elif [[ "$1" == "cmake.c++20.stl.test" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DWITH_METRICS_PREVIEW=ON \
+        -DWITH_METRICS_EXEMPLAR_PREVIEW=ON \
         -DWITH_LOGS_PREVIEW=ON \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         -DWITH_STL=ON \
         "${SRC_DIR}"
   make
@@ -127,10 +167,9 @@ elif [[ "$1" == "cmake.legacy.test" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   export BUILD_ROOT="${BUILD_DIR}"
-  ${SRC_DIR}/tools/build-gtest.sh
   ${SRC_DIR}/tools/build-benchmark.sh
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
         -DCMAKE_CXX_STANDARD=11 \
         "${SRC_DIR}"
   make
@@ -140,11 +179,12 @@ elif [[ "$1" == "cmake.legacy.exporter.otprotocol.test" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   export BUILD_ROOT="${BUILD_DIR}"
-  ${SRC_DIR}/tools/build-gtest.sh
   ${SRC_DIR}/tools/build-benchmark.sh
   cmake -DCMAKE_BUILD_TYPE=Debug  \
         -DCMAKE_CXX_STANDARD=11 \
         -DWITH_OTLP=ON \
+        -DWITH_OTLP_HTTP=ON \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         "${SRC_DIR}"
   grpc_cpp_plugin=`which grpc_cpp_plugin`
   proto_make_file="CMakeFiles/opentelemetry_proto.dir/build.make"
@@ -157,6 +197,21 @@ elif [[ "$1" == "cmake.exporter.otprotocol.test" ]]; then
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
         -DWITH_OTLP=ON \
+        -DWITH_OTLP_HTTP=ON \
+        "${SRC_DIR}"
+  grpc_cpp_plugin=`which grpc_cpp_plugin`
+  proto_make_file="CMakeFiles/opentelemetry_proto.dir/build.make"
+  sed -i "s~gRPC_CPP_PLUGIN_EXECUTABLE-NOTFOUND~$grpc_cpp_plugin~" ${proto_make_file} #fixme
+  make -j $(nproc)
+  cd exporters/otlp && make test
+  exit 0
+elif [[ "$1" == "cmake.exporter.otprotocol.with_async_export.test" ]]; then
+  cd "${BUILD_DIR}"
+  rm -rf *
+  cmake -DCMAKE_BUILD_TYPE=Debug  \
+        -DWITH_OTLP=ON \
+        -DWITH_OTLP_HTTP=ON \
+        -DWITH_ASYNC_EXPORT_PREVIEW=ON \
         "${SRC_DIR}"
   grpc_cpp_plugin=`which grpc_cpp_plugin`
   proto_make_file="CMakeFiles/opentelemetry_proto.dir/build.make"
@@ -165,8 +220,8 @@ elif [[ "$1" == "cmake.exporter.otprotocol.test" ]]; then
   cd exporters/otlp && make test
   exit 0
 elif [[ "$1" == "bazel.with_abseil" ]]; then
-  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS --//api:with_abseil=true //...
-  bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS --//api:with_abseil=true //...
+  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS_ASYNC --//api:with_abseil=true //...
+  bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS_ASYNC --//api:with_abseil=true //...
   exit 0
 elif [[ "$1" == "cmake.test_example_plugin" ]]; then
   # Build the plugin
@@ -186,7 +241,7 @@ EOF
     -Wl,--version-script=${PWD}/export.map \
   "
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LINKER_FLAGS" \
         -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS" \
         "${SRC_DIR}"
@@ -197,7 +252,7 @@ EOF
   cd "${BUILD_DIR}"
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DCMAKE_CXX_FLAGS="-Werror" \
+        -DCMAKE_CXX_FLAGS="-Werror $CXXFLAGS" \
         "${SRC_DIR}"
   make load_plugin_example
   examples/plugin/load/load_plugin_example ${PLUGIN_DIR}/libexample_plugin.so /dev/null
@@ -205,6 +260,10 @@ EOF
 elif [[ "$1" == "bazel.test" ]]; then
   bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS //...
   bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS //...
+  exit 0
+elif [[ "$1" == "bazel.with_async_export.test" ]]; then
+  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS_ASYNC //...
+  bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS_ASYNC //...
   exit 0
 elif [[ "$1" == "bazel.benchmark" ]]; then
   run_benchmarks
@@ -216,34 +275,42 @@ elif [[ "$1" == "bazel.macos.test" ]]; then
 elif [[ "$1" == "bazel.legacy.test" ]]; then
   # we uses C++ future and async() function to test the Prometheus Exporter functionality,
   # that make this test always fail. ignore Prometheus exporter here.
-  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS -- //... -//exporters/otlp/... -//exporters/prometheus/...
-  bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS -- //... -//exporters/otlp/... -//exporters/prometheus/...
+  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS_ASYNC -- //... -//exporters/otlp/... -//exporters/prometheus/...
+  bazel $BAZEL_STARTUP_OPTIONS test $BAZEL_TEST_OPTIONS_ASYNC -- //... -//exporters/otlp/... -//exporters/prometheus/...
   exit 0
 elif [[ "$1" == "bazel.noexcept" ]]; then
   # there are some exceptions and error handling code from the Prometheus and Jaeger Clients
   # that make this test always fail. ignore Prometheus and Jaeger exporters in the noexcept here.
-  bazel $BAZEL_STARTUP_OPTIONS build --copt=-fno-exceptions --build_tag_filters=-jaeger $BAZEL_OPTIONS -- //... -//exporters/prometheus/... -//exporters/jaeger/... -//examples/prometheus/...
-  bazel $BAZEL_STARTUP_OPTIONS test --copt=-fno-exceptions --build_tag_filters=-jaeger $BAZEL_TEST_OPTIONS -- //... -//exporters/prometheus/... -//exporters/jaeger/... -//examples/prometheus/...
+  bazel $BAZEL_STARTUP_OPTIONS build --copt=-fno-exceptions --build_tag_filters=-jaeger $BAZEL_OPTIONS_ASYNC -- //... -//exporters/prometheus/... -//exporters/jaeger/... -//examples/prometheus/... -//sdk/test/metrics:attributes_hashmap_test
+  bazel $BAZEL_STARTUP_OPTIONS test --copt=-fno-exceptions --build_tag_filters=-jaeger $BAZEL_TEST_OPTIONS_ASYNC -- //... -//exporters/prometheus/... -//exporters/jaeger/... -//examples/prometheus/... -//sdk/test/metrics:attributes_hashmap_test
   exit 0
 elif [[ "$1" == "bazel.nortti" ]]; then
   # there are some exceptions and error handling code from the Prometheus and Jaeger Clients
   # that make this test always fail. ignore Prometheus and Jaeger exporters in the noexcept here.
-  bazel $BAZEL_STARTUP_OPTIONS build --cxxopt=-fno-rtti --build_tag_filters=-jaeger $BAZEL_OPTIONS -- //... -//exporters/prometheus/... -//exporters/jaeger/...
-  bazel $BAZEL_STARTUP_OPTIONS test --cxxopt=-fno-rtti --build_tag_filters=-jaeger $BAZEL_TEST_OPTIONS -- //... -//exporters/prometheus/... -//exporters/jaeger/...
+  bazel $BAZEL_STARTUP_OPTIONS build --cxxopt=-fno-rtti --build_tag_filters=-jaeger $BAZEL_OPTIONS_ASYNC -- //... -//exporters/prometheus/... -//exporters/jaeger/...
+  bazel $BAZEL_STARTUP_OPTIONS test --cxxopt=-fno-rtti --build_tag_filters=-jaeger $BAZEL_TEST_OPTIONS_ASYNC -- //... -//exporters/prometheus/... -//exporters/jaeger/...
   exit 0
 elif [[ "$1" == "bazel.asan" ]]; then
-  bazel $BAZEL_STARTUP_OPTIONS test --config=asan $BAZEL_TEST_OPTIONS //...
+  bazel $BAZEL_STARTUP_OPTIONS test --config=asan $BAZEL_TEST_OPTIONS_ASYNC //...
+  bazel $BAZEL_STARTUP_OPTIONS run --config=asan $BAZEL_TEST_OPTIONS_ASYNC \
+  //examples/metrics_simple:metrics_ostream_example > /dev/null
   exit 0
 elif [[ "$1" == "bazel.tsan" ]]; then
-  bazel $BAZEL_STARTUP_OPTIONS test --config=tsan $BAZEL_TEST_OPTIONS //...
+  bazel $BAZEL_STARTUP_OPTIONS test --config=tsan $BAZEL_TEST_OPTIONS_ASYNC //...
+  bazel $BAZEL_STARTUP_OPTIONS run --config=tsan $BAZEL_TEST_OPTIONS_ASYNC \
+  //examples/metrics_simple:metrics_ostream_example > /dev/null
   exit 0
 elif [[ "$1" == "bazel.valgrind" ]]; then
-  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS //...
-  bazel $BAZEL_STARTUP_OPTIONS test --run_under="/usr/bin/valgrind --leak-check=full --error-exitcode=1 --suppressions=\"${SRC_DIR}/ci/valgrind-suppressions\"" $BAZEL_TEST_OPTIONS //...
+  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS_ASYNC //...
+  bazel $BAZEL_STARTUP_OPTIONS test --run_under="/usr/bin/valgrind --leak-check=full --error-exitcode=1 --suppressions=\"${SRC_DIR}/ci/valgrind-suppressions\"" $BAZEL_TEST_OPTIONS_ASYNC //...
+  exit 0
+elif [[ "$1" == "bazel.e2e" ]]; then
+  cd examples/e2e
+  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS_DEFAULT //...
   exit 0
 elif [[ "$1" == "benchmark" ]]; then
   [ -z "${BENCHMARK_DIR}" ] && export BENCHMARK_DIR=$HOME/benchmark
-  bazel $BAZEL_STARTUP_OPTIONS build $BAZEL_OPTIONS -c opt -- \
+  bazel $BAZEL_STARTUP_OPTIONS build --host_cxxopt=-std=c++14 --cxxopt=-std=c++14 $BAZEL_OPTIONS_ASYNC -c opt -- \
     $(bazel query 'attr("tags", "benchmark_result", ...)')
   echo ""
   echo "Benchmark results in $BENCHMARK_DIR:"
@@ -268,7 +335,7 @@ elif [[ "$1" == "code.coverage" ]]; then
   cd "${BUILD_DIR}"
   rm -rf *
   cmake -DCMAKE_BUILD_TYPE=Debug  \
-        -DCMAKE_CXX_FLAGS="-Werror --coverage" \
+        -DCMAKE_CXX_FLAGS="-Werror --coverage $CXXFLAGS" \
         "${SRC_DIR}"
   make
   make test
@@ -278,9 +345,9 @@ elif [[ "$1" == "code.coverage" ]]; then
   cp tmp_coverage.info coverage.info
   exit 0
 elif [[ "$1" == "third_party.tags" ]]; then
-  echo "gRPC=v1.43.2" > third_party_release
+  echo "gRPC=v1.49.2" > third_party_release
   echo "thrift=0.14.1" >> third_party_release
-  echo "abseil=20210324.0" >> third_party_release
+  echo "abseil=20220623.1" >> third_party_release
   git submodule foreach --quiet 'echo "$name=$(git describe --tags HEAD)"' | sed 's:.*/::' >> third_party_release
   exit 0
 fi

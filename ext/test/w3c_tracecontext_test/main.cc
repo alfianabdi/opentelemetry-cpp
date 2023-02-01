@@ -89,18 +89,20 @@ struct Uri
 class NoopEventHandler : public http_client::EventHandler
 {
 public:
-  void OnEvent(http_client::SessionState state, nostd::string_view reason) noexcept override {}
+  void OnEvent(http_client::SessionState /* state */,
+               nostd::string_view /* reason */) noexcept override
+  {}
 
   void OnConnecting(const http_client::SSLCertificate &) noexcept override {}
 
-  void OnResponse(http_client::Response &response) noexcept override {}
+  void OnResponse(http_client::Response & /* response */) noexcept override {}
 };
 }  // namespace
 
 // Sends an HTTP POST request to the given url, with the given body.
 void send_request(curl::HttpClient &client, const std::string &url, const std::string &body)
 {
-  static std::unique_ptr<http_client::EventHandler> handler(new NoopEventHandler());
+  static std::shared_ptr<http_client::EventHandler> handler(new NoopEventHandler());
 
   auto request_span = get_tracer()->StartSpan(__func__);
   trace_api::Scope scope(request_span);
@@ -126,7 +128,7 @@ void send_request(curl::HttpClient &client, const std::string &url, const std::s
     request->AddHeader(hdr.first, hdr.second);
   }
 
-  session->SendRequest(*handler);
+  session->SendRequest(handler);
   session->FinishSession();
 }
 
@@ -165,7 +167,9 @@ int main(int argc, char *argv[])
 
         for (auto &part : body)
         {
-          const TextMapCarrierTest carrier((std::map<std::string, std::string> &)req.headers);
+          auto headers_2 = const_cast<std::map<std::string, std::string> &>(req.headers);
+
+          const TextMapCarrierTest carrier(headers_2);
           auto current_ctx = context::RuntimeContext::GetCurrent();
           auto ctx         = propagator_format.Extract(carrier, current_ctx);
           auto token       = context::RuntimeContext::Attach(ctx);

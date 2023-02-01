@@ -30,7 +30,7 @@ public:
   const std::string GetResourceSchemaURL() const noexcept;
   const std::string GetInstrumentationLibrarySchemaURL() const noexcept;
 
-  proto::common::v1::InstrumentationLibrary GetProtoInstrumentationLibrary() const noexcept;
+  proto::common::v1::InstrumentationScope GetProtoInstrumentationScope() const noexcept;
 
   void SetIdentity(const opentelemetry::trace::SpanContext &span_context,
                    opentelemetry::trace::SpanId parent_span_id) noexcept override;
@@ -57,15 +57,14 @@ public:
 
   void SetDuration(std::chrono::nanoseconds duration) noexcept override;
 
-  void SetInstrumentationLibrary(
-      const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-          &instrumentation_library) noexcept override;
+  void SetInstrumentationScope(const opentelemetry::sdk::instrumentationscope::InstrumentationScope
+                                   &instrumentation_scope) noexcept override;
 
 private:
   proto::trace::v1::Span span_;
   const opentelemetry::sdk::resource::Resource *resource_ = nullptr;
-  const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-      *instrumentation_library_ = nullptr;
+  const opentelemetry::sdk::instrumentationscope::InstrumentationScope *instrumentation_scope_ =
+      nullptr;
 };
 }  // namespace otlp
 }  // namespace exporter

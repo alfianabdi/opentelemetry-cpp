@@ -7,18 +7,15 @@
 #include <cstring>
 #include <string>
 
-#include <regex>
-#if (__GNUC__ == 4 && (__GNUC_MINOR__ == 8 || __GNUC_MINOR__ == 9))
-#  define HAVE_WORKING_REGEX 0
-#else
-#  define HAVE_WORKING_REGEX 1
-#endif
-
 #include "opentelemetry/common/kv_properties.h"
 #include "opentelemetry/nostd/shared_ptr.h"
 #include "opentelemetry/nostd/span.h"
 #include "opentelemetry/nostd/string_view.h"
 #include "opentelemetry/nostd/unique_ptr.h"
+
+#if defined(OPENTELEMETRY_HAVE_WORKING_REGEX)
+#  include <regex>
+#endif
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace trace
@@ -41,7 +38,7 @@ public:
   static constexpr auto kKeyValueSeparator = '=';
   static constexpr auto kMembersSeparator  = ',';
 
-  static nostd::shared_ptr<TraceState> GetDefault()
+  OPENTELEMETRY_API_SINGLETON static nostd::shared_ptr<TraceState> GetDefault()
   {
     static nostd::shared_ptr<TraceState> ts{new TraceState()};
     return ts;
@@ -211,7 +208,7 @@ public:
    */
   static bool IsValidKey(nostd::string_view key)
   {
-#if HAVE_WORKING_REGEX
+#if OPENTELEMETRY_HAVE_WORKING_REGEX
     return IsValidKeyRegEx(key);
 #else
     return IsValidKeyNonRegEx(key);
@@ -224,7 +221,7 @@ public:
    */
   static bool IsValidValue(nostd::string_view value)
   {
-#if HAVE_WORKING_REGEX
+#if OPENTELEMETRY_HAVE_WORKING_REGEX
     return IsValidValueRegEx(value);
 #else
     return IsValidValueNonRegEx(value);
@@ -232,8 +229,8 @@ public:
   }
 
 private:
-  TraceState() : kv_properties_(new opentelemetry::common::KeyValueProperties()){};
-  TraceState(size_t size) : kv_properties_(new opentelemetry::common::KeyValueProperties(size)){};
+  TraceState() : kv_properties_(new opentelemetry::common::KeyValueProperties()) {}
+  TraceState(size_t size) : kv_properties_(new opentelemetry::common::KeyValueProperties(size)) {}
 
   static nostd::string_view TrimString(nostd::string_view str, size_t left, size_t right)
   {
@@ -316,5 +313,6 @@ private:
   // Store entries in a C-style array to avoid using std::array or std::vector.
   nostd::unique_ptr<opentelemetry::common::KeyValueProperties> kv_properties_;
 };
+
 }  // namespace trace
 OPENTELEMETRY_END_NAMESPACE

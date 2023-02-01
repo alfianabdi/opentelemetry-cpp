@@ -3,7 +3,12 @@
 
 #pragma once
 
+#ifdef OPENTELEMETRY_NO_DEPRECATED_CODE
+#  error "header <opentelemetry/exporters/jaeger/jaeger_exporter.h> is deprecated."
+#endif
+
 #include <opentelemetry/common/spin_lock_mutex.h>
+#include <opentelemetry/exporters/jaeger/jaeger_exporter_options.h>
 #include <opentelemetry/ext/http/client/http_client.h>
 #include <opentelemetry/sdk/trace/exporter.h>
 
@@ -12,29 +17,10 @@ namespace exporter
 {
 namespace jaeger
 {
-enum class TransportFormat
-{
-  kThriftUdp,
-  kThriftUdpCompact,
-  kThriftHttp,
-  kProtobufGrpc,
-};
 
 class ThriftSender;
 
-/**
- * Struct to hold Jaeger exporter options.
- */
-struct JaegerExporterOptions
-{
-  TransportFormat transport_format = TransportFormat::kThriftUdpCompact;
-  std::string endpoint             = "localhost";
-  uint16_t server_port             = 6831;
-  // Only applicable when using kThriftHttp transport.
-  ext::http::client::Headers headers;
-};
-
-class JaegerExporter final : public opentelemetry::sdk::trace::SpanExporter
+class OPENTELEMETRY_DEPRECATED JaegerExporter final : public opentelemetry::sdk::trace::SpanExporter
 {
 public:
   /**

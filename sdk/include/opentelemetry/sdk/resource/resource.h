@@ -33,14 +33,14 @@ public:
 
   /**
    * Returns a new, merged {@link Resource} by merging the current Resource
-   * with the other Resource. In case of a collision, current Resource takes
+   * with the other Resource. In case of a collision, the other Resource takes
    * precedence.
    *
    * @param other the Resource that will be merged with this.
    * @returns the newly merged Resource.
    */
 
-  Resource Merge(const Resource &other) noexcept;
+  Resource Merge(const Resource &other) const noexcept;
 
   /**
    * Returns a newly created Resource with the specified attributes.

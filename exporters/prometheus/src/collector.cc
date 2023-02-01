@@ -1,9 +1,7 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ENABLE_METRICS_PREVIEW
-
-#  include "opentelemetry/exporters/prometheus/collector.h"
+#include "opentelemetry/exporters/prometheus/collector.h"
 
 namespace metric_sdk = opentelemetry::sdk::metrics;
 
@@ -58,7 +56,8 @@ void PrometheusCollector::AddMetricData(const sdk::metrics::ResourceMetrics &dat
   collection_lock_.lock();
   if (metrics_to_collect_.size() + 1 <= max_collection_size_)
   {
-    metrics_to_collect_.emplace_back(new sdk::metrics::ResourceMetrics{data});
+    // We can not use initializer lists here due to broken variadic capture on GCC 4.8.5
+    metrics_to_collect_.emplace_back(new sdk::metrics::ResourceMetrics(data));
   }
   collection_lock_.unlock();
 }
@@ -86,4 +85,3 @@ int PrometheusCollector::GetMaxCollectionSize() const
 }  // namespace metrics
 }  // namespace exporter
 OPENTELEMETRY_END_NAMESPACE
-#endif

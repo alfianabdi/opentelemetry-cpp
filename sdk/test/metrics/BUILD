@@ -1,6 +1,21 @@
 load("//bazel:otel_cc_benchmark.bzl", "otel_cc_benchmark")
 
 cc_test(
+    name = "meter_test",
+    srcs = [
+        "meter_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "meter_provider_sdk_test",
     srcs = [
         "meter_provider_sdk_test.cc",
@@ -20,6 +35,22 @@ cc_test(
     name = "metric_reader_test",
     srcs = [
         "metric_reader_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "//sdk/src/resource",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "histogram_test",
+    srcs = [
+        "histogram_test.cc",
     ],
     tags = [
         "metrics",
@@ -65,9 +96,41 @@ cc_test(
 )
 
 cc_test(
-    name = "sync_metric_storage_test",
+    name = "sync_metric_storage_counter_test",
     srcs = [
-        "sync_metric_storage_test.cc",
+        "sync_metric_storage_counter_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "//sdk/src/resource",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sync_metric_storage_up_down_counter_test",
+    srcs = [
+        "sync_metric_storage_up_down_counter_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "//sdk/src/resource",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sync_metric_storage_histogram_test",
+    srcs = [
+        "sync_metric_storage_histogram_test.cc",
     ],
     tags = [
         "metrics",
@@ -92,6 +155,21 @@ cc_test(
     deps = [
         "//sdk/src/metrics",
         "//sdk/src/resource",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "async_instruments_test",
+    srcs = [
+        "async_instruments_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -174,12 +252,43 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "histogram_aggregation_test",
+    srcs = [
+        "histogram_aggregation_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sum_aggregation_test",
+    srcs = [
+        "sum_aggregation_test.cc",
+    ],
+    tags = [
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 otel_cc_benchmark(
     name = "attributes_processor_benchmark",
     srcs = [
         "attributes_processor_benchmark.cc",
     ],
     tags = [
+        "benchmark",
         "metrics",
         "test",
     ],
@@ -194,10 +303,27 @@ otel_cc_benchmark(
         "attributes_hashmap_benchmark.cc",
     ],
     tags = [
+        "benchmark",
         "metrics",
         "test",
     ],
     deps = [
         "//sdk/src/metrics",
+    ],
+)
+
+otel_cc_benchmark(
+    name = "histogram_aggregation_benchmark",
+    srcs = [
+        "histogram_aggregation_benchmark.cc",
+    ],
+    tags = [
+        "benchmark",
+        "metrics",
+        "test",
+    ],
+    deps = [
+        "//sdk/src/metrics",
+        "//sdk/src/resource",
     ],
 )

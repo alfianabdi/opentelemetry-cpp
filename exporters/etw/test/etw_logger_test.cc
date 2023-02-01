@@ -33,7 +33,7 @@ const char *kGlobalProviderName = "OpenTelemetry-ETW-TLD";
  * "Payload": {
  *   "Name": "test",
  *   "SpanId": "0000000000000000",
- *   "Timestamp": "2021-09-30T23:40:40.081000Z",
+ *   "Timestamp": "2021-09-30T23:40:40.066411500Z",
  *   "TraceId": "00000000000000000000000000000000",
  *   "_name": "Log",
  *   "body": "This is test message",
@@ -49,9 +49,10 @@ TEST(ETWLogger, LoggerCheckWithBody)
   exporter::etw::LoggerProvider lp;
 
   const std::string schema_url{"https://opentelemetry.io/schemas/1.2.0"};
-  auto logger        = lp.GetLogger(providerName, "", schema_url);
+  auto logger        = lp.GetLogger(providerName, schema_url);
   Properties attribs = {{"attrib1", 1}, {"attrib2", 2}};
-  EXPECT_NO_THROW(logger->Log(opentelemetry::logs::Severity::kDebug, "This is test log body"));
+  EXPECT_NO_THROW(
+      logger->EmitLogRecord(opentelemetry::logs::Severity::kDebug, "This is test log body"));
 }
 
 /**
@@ -72,7 +73,7 @@ TEST(ETWLogger, LoggerCheckWithBody)
  * "Payload": {
  *  "Name": "test",
  *   "SpanId": "0000000000000000",
- *  "Timestamp": "2021-09-30T22:04:15.422000Z",
+ *  "Timestamp": "2021-09-30T22:04:15.066411500Z",
  *   "TraceId": "00000000000000000000000000000000",
  *   "_name": "Log",
  *  "attrib1": 1,
@@ -91,10 +92,11 @@ TEST(ETWLogger, LoggerCheckWithAttributes)
   exporter::etw::LoggerProvider lp;
 
   const std::string schema_url{"https://opentelemetry.io/schemas/1.2.0"};
-  auto logger = lp.GetLogger(providerName, "", schema_url);
+  auto logger = lp.GetLogger(providerName, schema_url);
   // Log attributes
   Properties attribs = {{"attrib1", 1}, {"attrib2", 2}};
-  EXPECT_NO_THROW(logger->Log(opentelemetry::logs::Severity::kDebug, attribs));
+  EXPECT_NO_THROW(logger->EmitLogRecord(opentelemetry::logs::Severity::kDebug,
+                                        Logger::MakeAttributes(attribs)));
 }
 
 #  endif  // _WIN32

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/sdk/common/attribute_utils.h"
+
+#include "opentelemetry/sdk/common/attribute_utils.h"
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
 {
@@ -23,8 +23,7 @@ public:
   // @returns The processed attributes
   virtual MetricAttributes process(
       const opentelemetry::common::KeyValueIterable &attributes) const noexcept = 0;
-
-  virtual ~AttributesProcessor() = default;
+  virtual ~AttributesProcessor()                                                = default;
 };
 
 /**
@@ -78,4 +77,3 @@ private:
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

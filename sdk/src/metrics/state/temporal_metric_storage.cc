@@ -1,10 +1,14 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef ENABLE_METRICS_PREVIEW
+#include <cstddef>
+#include <memory>
+#include <utility>
+#include "opentelemetry/nostd/shared_ptr.h"
 
-#  include "opentelemetry/sdk/metrics/state/temporal_metric_storage.h"
-#  include "opentelemetry/sdk/metrics/aggregation/default_aggregation.h"
+#include "opentelemetry/metrics/meter.h"
+#include "opentelemetry/sdk/metrics/aggregation/default_aggregation.h"
+#include "opentelemetry/sdk/metrics/state/temporal_metric_storage.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -12,8 +16,12 @@ namespace sdk
 namespace metrics
 {
 
-TemporalMetricStorage::TemporalMetricStorage(InstrumentDescriptor instrument_descriptor)
-    : instrument_descriptor_(instrument_descriptor)
+TemporalMetricStorage::TemporalMetricStorage(InstrumentDescriptor instrument_descriptor,
+                                             AggregationType aggregation_type,
+                                             const AggregationConfig *aggregation_config)
+    : instrument_descriptor_(instrument_descriptor),
+      aggregation_type_(aggregation_type),
+      aggregation_config_(aggregation_config)
 {}
 
 bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
@@ -25,10 +33,15 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
 {
   std::lock_guard<opentelemetry::common::SpinLockMutex> guard(lock_);
   opentelemetry::common::SystemTimestamp last_collection_ts = sdk_start_ts;
-  auto aggregation_temporarily = collector->GetAggregationTemporality();
-  for (auto &col : collectors)
+  AggregationTemporality aggregation_temporarily =
+      collector->GetAggregationTemporality(instrument_descriptor_.type_);
+
+  if (delta_metrics->Size())
   {
-    unreported_metrics_[col.get()].push_back(delta_metrics);
+    for (auto &col : collectors)
+    {
+      unreported_metrics_[col.get()].push_back(delta_metrics);
+    }
   }
 
   // Get the unreported metrics for the `collector` from `unreported metrics stash`
@@ -54,11 +67,10 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
           }
           else
           {
-            merged_metrics->Set(
-                attributes,
-                DefaultAggregation::CreateAggregation(instrument_descriptor_)->Merge(aggregation));
-            merged_metrics->GetAllEnteries(
-                [](const MetricAttributes &attr, Aggregation &aggr) { return true; });
+            merged_metrics->Set(attributes,
+                                DefaultAggregation::CreateAggregation(
+                                    aggregation_type_, instrument_descriptor_, aggregation_config_)
+                                    ->Merge(aggregation));
           }
           return true;
         });
@@ -89,8 +101,9 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
             }
             else
             {
-              merged_metrics->Set(attributes,
-                                  DefaultAggregation::CreateAggregation(instrument_descriptor_));
+              auto def_agg = DefaultAggregation::CreateAggregation(
+                  aggregation_type_, instrument_descriptor_, aggregation_config_);
+              merged_metrics->Set(attributes, def_agg->Merge(aggregation));
             }
             return true;
           });
@@ -100,8 +113,6 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
   }
   else
   {
-    merged_metrics->GetAllEnteries(
-        [](const MetricAttributes &attr, Aggregation &aggr) { return true; });
     last_reported_metrics_.insert(
         std::make_pair(collector, LastReportedMetrics{std::move(merged_metrics), collection_ts}));
   }
@@ -110,15 +121,16 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
 
   AttributesHashMap *result_to_export = (last_reported_metrics_[collector]).attributes_map.get();
   MetricData metric_data;
-  metric_data.instrument_descriptor = instrument_descriptor_;
-  metric_data.start_ts              = last_collection_ts;
-  metric_data.end_ts                = collection_ts;
+  metric_data.instrument_descriptor   = instrument_descriptor_;
+  metric_data.aggregation_temporality = aggregation_temporarily;
+  metric_data.start_ts                = last_collection_ts;
+  metric_data.end_ts                  = collection_ts;
   result_to_export->GetAllEnteries(
       [&metric_data](const MetricAttributes &attributes, Aggregation &aggregation) {
         PointDataAttributes point_data_attr;
         point_data_attr.point_data = aggregation.ToPoint();
         point_data_attr.attributes = attributes;
-        metric_data.point_data_attr_.push_back(point_data_attr);
+        metric_data.point_data_attr_.emplace_back(std::move(point_data_attr));
         return true;
       });
   return callback(metric_data);
@@ -128,4 +140,3 @@ bool TemporalMetricStorage::buildMetrics(CollectorHandle *collector,
 
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/sdk/instrumentationlibrary/instrumentation_library.h"
-#  include "opentelemetry/sdk/metrics/data/metric_data.h"
-#  include "opentelemetry/sdk/resource/resource.h"
+
+#include "opentelemetry/sdk/instrumentationscope/instrumentation_scope.h"
+#include "opentelemetry/sdk/metrics/data/metric_data.h"
+#include "opentelemetry/sdk/resource/resource.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -15,19 +15,18 @@ namespace metrics
 
 /**
  * Metric Data to be exported along with resources and
- * Instrumentation library.
+ * Instrumentation scope.
  */
-struct InstrumentationInfoMetrics
+struct ScopeMetrics
 {
-  const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-      *instrumentation_library_;
+  const opentelemetry::sdk::instrumentationscope::InstrumentationScope *scope_;
   std::vector<MetricData> metric_data_;
 };
 
 struct ResourceMetrics
 {
   const opentelemetry::sdk::resource::Resource *resource_;
-  std::vector<InstrumentationInfoMetrics> instrumentation_info_metric_data_;
+  std::vector<ScopeMetrics> scope_metric_data_;
 };
 
 /**
@@ -41,6 +40,9 @@ struct ResourceMetrics
 class MetricProducer
 {
 public:
+  MetricProducer()          = default;
+  virtual ~MetricProducer() = default;
+
   /**
    * The callback to be called for each metric exporter. This will only be those
    * metrics that have been produced since the last time this method was called.
@@ -54,4 +56,3 @@ public:
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

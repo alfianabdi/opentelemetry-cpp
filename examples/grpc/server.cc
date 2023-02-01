@@ -5,7 +5,7 @@
 #endif
 
 #include "opentelemetry/trace/context.h"
-#include "opentelemetry/trace/experimental_semantic_conventions.h"
+#include "opentelemetry/trace/semantic_conventions.h"
 #include "opentelemetry/trace/span_context_kv_iterable_view.h"
 #include "tracer_common.h"
 
@@ -64,14 +64,13 @@ public:
     options.parent   = GetSpan(new_context)->GetContext();
 
     std::string span_name = "GreeterService/Greet";
-    auto span =
-        get_tracer("grpc")->StartSpan(span_name,
-                                      {{OTEL_GET_TRACE_ATTR(AttrRpcSystem), "grpc"},
-                                       {OTEL_GET_TRACE_ATTR(AttrRpcService), "GreeterService"},
-                                       {OTEL_GET_TRACE_ATTR(AttrRpcMethod), "Greet"},
-                                       {OTEL_GET_TRACE_ATTR(AttrRpcGrpcStatusCode), 0}},
-                                      options);
-    auto scope = get_tracer("grpc")->WithActiveSpan(span);
+    auto span             = get_tracer("grpc")->StartSpan(span_name,
+                                              {{SemanticConventions::kRpcSystem, "grpc"},
+                                               {SemanticConventions::kRpcService, "GreeterService"},
+                                               {SemanticConventions::kRpcMethod, "Greet"},
+                                               {SemanticConventions::kRpcGrpcStatusCode, 0}},
+                                              options);
+    auto scope            = get_tracer("grpc")->WithActiveSpan(span);
 
     // Fetch and parse whatever HTTP headers we can from the gRPC request.
     span->AddEvent("Processing client attributes");
@@ -108,7 +107,7 @@ void RunServer(uint16_t port)
 
 int main(int argc, char **argv)
 {
-  initTracer();
+  InitTracer();
   constexpr uint16_t default_port = 8800;
   uint16_t port;
   if (argc > 1)
@@ -121,5 +120,6 @@ int main(int argc, char **argv)
   }
 
   RunServer(port);
+  CleanupTracer();
   return 0;
 }

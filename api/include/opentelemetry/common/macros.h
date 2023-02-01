@@ -3,10 +3,6 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include "opentelemetry/version.h"
-
 #if !defined(OPENTELEMETRY_LIKELY_IF) && defined(__cplusplus)
 // GCC 9 has likely attribute but do not support declare it at the beginning of statement
 #  if defined(__has_cpp_attribute) && (defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 9)
@@ -88,4 +84,94 @@
 #  endif
 #else
 #  define OPENTELEMETRY_DEPRECATED_MESSAGE(msg)
+#endif
+
+// Regex support
+#if (__GNUC__ == 4 && (__GNUC_MINOR__ == 8 || __GNUC_MINOR__ == 9))
+#  define OPENTELEMETRY_HAVE_WORKING_REGEX 0
+#else
+#  define OPENTELEMETRY_HAVE_WORKING_REGEX 1
+#endif
+
+/* clang-format off */
+
+/**
+  @page HEADER_ONLY_SINGLETON Header only singleton.
+
+  @section ELF_SINGLETON
+
+  For clang and gcc, the desired coding pattern is as follows.
+
+  @verbatim
+  class Foo
+  {
+    // (a)
+    __attribute__((visibility("default")))
+    // (b)
+    T& get_singleton()
+    {
+      // (c)
+      static T singleton;
+      return singleton;
+    }
+  };
+  @endverbatim
+
+  (a) is needed when the code is build with
+  @code -fvisibility="hidden" @endcode
+  to ensure that all instances of (b) are visible to the linker.
+
+  What is duplicated in the binary is @em code, in (b).
+
+  The linker will make sure only one instance
+  of all the (b) methods is used.
+
+  (c) is a singleton implemented inside a method.
+
+  This is very desirable, because:
+
+  - the C++ compiler guarantees that construction
+    of the variable (c) is thread safe.
+
+  - constructors for (c) singletons are executed in code path order,
+    or not at all if the singleton is never used.
+
+  @section OTHER_SINGLETON
+
+  For other platforms, header only singletons are not supported at this
+point.
+
+  @section CODING_PATTERN
+
+  The coding pattern to use in the source code is as follows
+
+  @verbatim
+  class Foo
+  {
+    OPENTELEMETRY_API_SINGLETON
+    T& get_singleton()
+    {
+      static T singleton;
+      return singleton;
+    }
+  };
+  @endverbatim
+*/
+
+/* clang-format on */
+
+#if defined(__clang__)
+
+#  define OPENTELEMETRY_API_SINGLETON __attribute__((visibility("default")))
+
+#elif defined(__GNUC__)
+
+#  define OPENTELEMETRY_API_SINGLETON __attribute__((visibility("default")))
+
+#else
+
+/* Add support for other compilers here. */
+
+#  define OPENTELEMETRY_API_SINGLETON
+
 #endif

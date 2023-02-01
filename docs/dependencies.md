@@ -10,19 +10,18 @@ Both these dependencies are listed here:
 
 ## Internal dependencies
 
-- [nostd::variant](https://github.com/open-telemetry/opentelemetry-cpp/blob/v1.0.0-rc1/api/include/opentelemetry/nostd/absl/types/variant.h):
+- [nostd::variant](/api/include/opentelemetry/nostd/internal/absl/types/variant.h):
   This is backported from [Abseil C++
   libraries](https://github.com/abseil/abseil-cpp) and used as default variant
   implementation. License: `Apache License 2.0`
-- [TraceLoggingDynamic](https://github.com/open-telemetry/opentelemetry-cpp/blob/v1.0.0-rc1/exporters/etw/include/opentelemetry/exporters/etw/TraceLoggingDynamic.h):
-  Dynamic TraceLogging Provider API for C++ used by ETW exporter. License: `MIT
-  License`
+- [TraceLoggingDynamic](/exporters/etw/include/opentelemetry/exporters/etw/TraceLoggingDynamic.h):
+  Dynamic TraceLogging Provider API for C++ used by ETW exporter. License: `MIT License`
 
 ## External dependencies
 
-- [API](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/api)
+- [API](/api)
   &
-  [SDK](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/sdk):
+  [SDK](/sdk):
   - Uses Standard C++ library for latest features (std::string_view,
     std::variant, std::span, std::shared_ptr, std::unique_ptr) with  C++14/17/20
     compiler if `WITH_STL` cmake option is enabled or `HAVE_CPP_STDLIB` macro is
@@ -30,13 +29,17 @@ Both these dependencies are listed here:
     - For C++11/14/17 compilers, fallback to gsl::span if [GSL C++
       library](https://github.com/microsoft/GSL) is installed. License: `MIT
       License`
+    - libc++ 14.0.0 do not support construct std::span from a range or container
+      .We don't use the std::span in this situation.Users can also define
+      `OPENTELEMETRY_OPTION_USE_STD_SPAN=0` to indicate nostd:span will always
+      not be a alias for std::span.
   - Uses Abseil C++ Library for `absl::variant` as default `nostd::variant` if
     `WITH_ABSEIL` cmake option or
-    `--@io_opentelemetry_cpp/api:with_abseil=true` (aka
+    `--@io_opentelemetry_cpp//api:with_abseil=true` (aka
     `--//api:with_abseil=true`) bazel option is enabled. License: `Apache
     License 2.0`
 
-- [OTLP/HTTP+JSON](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/otlp)
+- [OTLP/HTTP+JSON](/exporters/otlp)
   exporter:
   - [protobuf](https://github.com/protocolbuffers/protobuf):  Library to
     serialize structured data.
@@ -60,42 +63,44 @@ Both these dependencies are listed here:
       library.
     - License: `MIT License`
 
-- [OTLP/gRPC](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/otlp)
+- [OTLP/gRPC](/exporters/otlp)
   exporter:
   - `protobuf`  OTLP messages are constructed as protobuf payloads.
   - [gRPC](https://github.com/grpc/grpc): An RPC library and framework
     - Exporter communicates with OTLP collector using gRPC transport mechanism.
     - License: `Apache License 2.0`
 
-- [Zipkin](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/zipkin)
+- [Zipkin](/exporters/zipkin)
   exporter:
   - `libcurl` for connecting with Zipkin server over HTTP protocol.
   - `nlohmann/json` for encoding Zipkin messages.
 
-- [Jaeger](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/jaeger)
+- [Jaeger](/exporters/jaeger)
   exporter:
   - [Thrift](https://github.com/apache/thrift) - Serialization and RPC
     framework.
     - `thrift` compiler to generate C++ stubs for IDL data model for Jaeger.
     - `libthrift`  library to generate serialised trace/metrics/log data to be
-      sent to remote Jaeger service.
+      sent to remote Jaeger service. Note: libthrift **0.12.0** doesn't work
+      with this Jaeger exporter. See
+      [#1680](https://github.com/open-telemetry/opentelemetry-cpp/issues/1680).
     - License: `Apache License 2.0`
 
-- [ETW](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/etw)
+- [ETW](/exporters/etw)
   exporter:
   - `nlohmann/json` for generating MessagePack serialization for message to be
     transmitted to ETW.
 
-- [Prometheus](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/prometheus)
+- [Prometheus](/exporters/prometheus)
   exporter:
   - [`prometheus-cpp`](https://github.com/jupp0r/prometheus-cpp) Prometheus
     Client Library for Modern C++
     - License: `MIT License`
 
-- [ElasticSearch](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/exporters/elasticsearch)
+- [ElasticSearch](/exporters/elasticsearch)
   exporter:
   - `libcurl` for connecting with Elasticsearch server over HTTP protocol.
   - `nlohmann/json` for encoding Elastic Search messages.
 
-- [Zpages](https://github.com/open-telemetry/opentelemetry-cpp/tree/v1.0.0-rc1/ext/src/zpages):
+- [Zpages](/ext/src/zpages):
   - None

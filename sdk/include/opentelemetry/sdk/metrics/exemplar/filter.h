@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#ifndef ENABLE_METRICS_PREVIEW
-#  include "opentelemetry/context/context.h"
-#  include "opentelemetry/sdk/common/attribute_utils.h"
+
+#include "opentelemetry/context/context.h"
+#include "opentelemetry/sdk/common/attribute_utils.h"
 
 OPENTELEMETRY_BEGIN_NAMESPACE
 namespace sdk
@@ -21,7 +21,7 @@ class ExemplarFilter
 {
 public:
   // Returns whether or not a reservoir should attempt to filter a measurement.
-  virtual bool ShouldSampleMeasurement(long value,
+  virtual bool ShouldSampleMeasurement(int64_t value,
                                        const MetricAttributes &attributes,
                                        const opentelemetry::context::Context &context) noexcept = 0;
 
@@ -31,9 +31,12 @@ public:
                                        const opentelemetry::context::Context &context) noexcept = 0;
 
   virtual ~ExemplarFilter() = default;
+
+  static std::shared_ptr<ExemplarFilter> GetNeverSampleFilter() noexcept;
+  static std::shared_ptr<ExemplarFilter> GetAlwaysSampleFilter() noexcept;
+  static std::shared_ptr<ExemplarFilter> GetWithTraceSampleFilter() noexcept;
 };
 
 }  // namespace metrics
 }  // namespace sdk
 OPENTELEMETRY_END_NAMESPACE
-#endif

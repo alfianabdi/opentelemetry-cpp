@@ -63,7 +63,7 @@ Span::Span(std::shared_ptr<Tracer> &&tracer,
     return;
   }
   recordable_->SetName(name);
-  recordable_->SetInstrumentationLibrary(tracer_->GetInstrumentationLibrary());
+  recordable_->SetInstrumentationScope(tracer_->GetInstrumentationScope());
   recordable_->SetIdentity(*span_context_, parent_span_context.IsValid()
                                                ? parent_span_context.span_id()
                                                : trace_api::SpanId());
@@ -120,6 +120,16 @@ void Span::AddEvent(nostd::string_view name, SystemTimestamp timestamp) noexcept
     return;
   }
   recordable_->AddEvent(name, timestamp);
+}
+
+void Span::AddEvent(nostd::string_view name, const common::KeyValueIterable &attributes) noexcept
+{
+  std::lock_guard<std::mutex> lock_guard{mu_};
+  if (recordable_ == nullptr)
+  {
+    return;
+  }
+  recordable_->AddEvent(name, attributes);
 }
 
 void Span::AddEvent(nostd::string_view name,

@@ -48,13 +48,17 @@ public:
       return {Decision::RECORD_AND_SAMPLE,
               nostd::unique_ptr<const std::map<std::string, opentelemetry::common::AttributeValue>>(
                   new const std::map<std::string, opentelemetry::common::AttributeValue>(
-                      {{"sampling_attr1", 123}, {"sampling_attr2", "string"}}))};
+                      {{"sampling_attr1", 123}, {"sampling_attr2", "string"}})),
+              nostd::shared_ptr<opentelemetry::trace::TraceState>(nullptr)};
     }
     else
     {
       // we should never reach here
       assert(false);
-      return {Decision::DROP};
+      return {Decision::DROP,
+              nostd::unique_ptr<const std::map<std::string, opentelemetry::common::AttributeValue>>(
+                  nullptr),
+              nostd::shared_ptr<opentelemetry::trace::TraceState>(nullptr)};
     }
   }
 
@@ -267,11 +271,11 @@ TEST(Tracer, StartSpanWithAttributes)
   ASSERT_EQ(9, cur_span_data->GetAttributes().size());
   ASSERT_EQ(314159, nostd::get<int32_t>(cur_span_data->GetAttributes().at("attr1")));
   ASSERT_EQ(false, nostd::get<bool>(cur_span_data->GetAttributes().at("attr2")));
-  ASSERT_EQ(314159, nostd::get<uint32_t>(cur_span_data->GetAttributes().at("attr3")));
+  ASSERT_EQ((uint32_t)314159, nostd::get<uint32_t>(cur_span_data->GetAttributes().at("attr3")));
   ASSERT_EQ(-20, nostd::get<int32_t>(cur_span_data->GetAttributes().at("attr4")));
-  ASSERT_EQ(20, nostd::get<uint32_t>(cur_span_data->GetAttributes().at("attr5")));
+  ASSERT_EQ((uint32_t)20, nostd::get<uint32_t>(cur_span_data->GetAttributes().at("attr5")));
   ASSERT_EQ(-20, nostd::get<int64_t>(cur_span_data->GetAttributes().at("attr6")));
-  ASSERT_EQ(20, nostd::get<uint64_t>(cur_span_data->GetAttributes().at("attr7")));
+  ASSERT_EQ((uint64_t)20, nostd::get<uint64_t>(cur_span_data->GetAttributes().at("attr7")));
   ASSERT_EQ(3.1, nostd::get<double>(cur_span_data->GetAttributes().at("attr8")));
   ASSERT_EQ("string", nostd::get<std::string>(cur_span_data->GetAttributes().at("attr9")));
 
@@ -719,10 +723,10 @@ TEST(Tracer, SpanCleanupWithScope)
     auto span0 = tracer->StartSpan("Span0");
     auto span1 = tracer->StartSpan("span1");
     {
-      trace_api::Scope scope(span1);
+      trace_api::Scope scope1(span1);
       auto span2 = tracer->StartSpan("span2");
       {
-        trace_api::Scope scope(span2);
+        trace_api::Scope scope2(span2);
         auto span3 = tracer->StartSpan("span3");
       }
     }

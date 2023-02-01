@@ -1,12 +1,9 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Make sure to include GRPC exporter first because otherwise Abseil may create
-// ambiguity with `nostd::variant`. See issue:
-// https://github.com/open-telemetry/opentelemetry-cpp/issues/880
-#include "opentelemetry/exporters/otlp/otlp_grpc_exporter.h"
-#include "opentelemetry/sdk/trace/simple_processor.h"
-#include "opentelemetry/sdk/trace/tracer_provider.h"
+#include "opentelemetry/exporters/otlp/otlp_grpc_exporter_factory.h"
+#include "opentelemetry/sdk/trace/simple_processor_factory.h"
+#include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #include "opentelemetry/trace/provider.h"
 
 #ifdef BAZEL_BUILD
@@ -16,7 +13,6 @@
 #endif
 
 namespace trace     = opentelemetry::trace;
-namespace nostd     = opentelemetry::nostd;
 namespace trace_sdk = opentelemetry::sdk::trace;
 namespace otlp      = opentelemetry::exporter::otlp;
 
@@ -26,13 +22,18 @@ opentelemetry::exporter::otlp::OtlpGrpcExporterOptions opts;
 void InitTracer()
 {
   // Create OTLP exporter instance
-  auto exporter  = std::unique_ptr<trace_sdk::SpanExporter>(new otlp::OtlpGrpcExporter(opts));
-  auto processor = std::unique_ptr<trace_sdk::SpanProcessor>(
-      new trace_sdk::SimpleSpanProcessor(std::move(exporter)));
-  auto provider =
-      nostd::shared_ptr<trace::TracerProvider>(new trace_sdk::TracerProvider(std::move(processor)));
+  auto exporter  = otlp::OtlpGrpcExporterFactory::Create(opts);
+  auto processor = trace_sdk::SimpleSpanProcessorFactory::Create(std::move(exporter));
+  std::shared_ptr<opentelemetry::trace::TracerProvider> provider =
+      trace_sdk::TracerProviderFactory::Create(std::move(processor));
   // Set the global trace provider
   trace::Provider::SetTracerProvider(provider);
+}
+
+void CleanupTracer()
+{
+  std::shared_ptr<opentelemetry::trace::TracerProvider> none;
+  trace::Provider::SetTracerProvider(none);
 }
 }  // namespace
 
@@ -51,4 +52,6 @@ int main(int argc, char *argv[])
   InitTracer();
 
   foo_library();
+
+  CleanupTracer();
 }

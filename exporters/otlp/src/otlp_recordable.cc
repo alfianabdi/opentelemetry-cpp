@@ -3,6 +3,7 @@
 
 #include "opentelemetry/exporters/otlp/otlp_recordable.h"
 
+#include "opentelemetry/exporters/otlp/otlp_populate_attribute_utils.h"
 #include "opentelemetry/exporters/otlp/otlp_recordable_utils.h"
 
 namespace nostd = opentelemetry::nostd;
@@ -33,7 +34,7 @@ proto::resource::v1::Resource OtlpRecordable::ProtoResource() const noexcept
   proto::resource::v1::Resource proto;
   if (resource_)
   {
-    OtlpRecordableUtils::PopulateAttribute(&proto, *resource_);
+    OtlpPopulateAttributeUtils::PopulateAttribute(&proto, *resource_);
   }
 
   return proto;
@@ -53,36 +54,36 @@ const std::string OtlpRecordable::GetResourceSchemaURL() const noexcept
 const std::string OtlpRecordable::GetInstrumentationLibrarySchemaURL() const noexcept
 {
   std::string schema_url;
-  if (instrumentation_library_)
+  if (instrumentation_scope_)
   {
-    schema_url = instrumentation_library_->GetSchemaURL();
+    schema_url = instrumentation_scope_->GetSchemaURL();
   }
 
   return schema_url;
 }
 
-proto::common::v1::InstrumentationLibrary OtlpRecordable::GetProtoInstrumentationLibrary()
+proto::common::v1::InstrumentationScope OtlpRecordable::GetProtoInstrumentationScope()
     const noexcept
 {
-  proto::common::v1::InstrumentationLibrary instrumentation_library;
-  if (instrumentation_library_)
+  proto::common::v1::InstrumentationScope instrumentation_scope;
+  if (instrumentation_scope_)
   {
-    instrumentation_library.set_name(instrumentation_library_->GetName());
-    instrumentation_library.set_version(instrumentation_library_->GetVersion());
+    instrumentation_scope.set_name(instrumentation_scope_->GetName());
+    instrumentation_scope.set_version(instrumentation_scope_->GetVersion());
   }
-  return instrumentation_library;
+  return instrumentation_scope;
 }
 
 void OtlpRecordable::SetResource(const sdk::resource::Resource &resource) noexcept
 {
   resource_ = &resource;
-};
+}
 
 void OtlpRecordable::SetAttribute(nostd::string_view key,
                                   const common::AttributeValue &value) noexcept
 {
   auto *attribute = span_.add_attributes();
-  OtlpRecordableUtils::PopulateAttribute(attribute, key, value);
+  OtlpPopulateAttributeUtils::PopulateAttribute(attribute, key, value);
 }
 
 void OtlpRecordable::AddEvent(nostd::string_view name,
@@ -94,7 +95,7 @@ void OtlpRecordable::AddEvent(nostd::string_view name,
   event->set_time_unix_nano(timestamp.time_since_epoch().count());
 
   attributes.ForEachKeyValue([&](nostd::string_view key, common::AttributeValue value) noexcept {
-    OtlpRecordableUtils::PopulateAttribute(event->add_attributes(), key, value);
+    OtlpPopulateAttributeUtils::PopulateAttribute(event->add_attributes(), key, value);
     return true;
   });
 }
@@ -109,7 +110,7 @@ void OtlpRecordable::AddLink(const trace::SpanContext &span_context,
                     trace::SpanId::kSize);
   link->set_trace_state(span_context.trace_state()->ToHeader());
   attributes.ForEachKeyValue([&](nostd::string_view key, common::AttributeValue value) noexcept {
-    OtlpRecordableUtils::PopulateAttribute(link->add_attributes(), key, value);
+    OtlpPopulateAttributeUtils::PopulateAttribute(link->add_attributes(), key, value);
     return true;
   });
 }
@@ -175,11 +176,11 @@ void OtlpRecordable::SetDuration(std::chrono::nanoseconds duration) noexcept
   span_.set_end_time_unix_nano(unix_end_time);
 }
 
-void OtlpRecordable::SetInstrumentationLibrary(
-    const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-        &instrumentation_library) noexcept
+void OtlpRecordable::SetInstrumentationScope(
+    const opentelemetry::sdk::instrumentationscope::InstrumentationScope
+        &instrumentation_scope) noexcept
 {
-  instrumentation_library_ = &instrumentation_library;
+  instrumentation_scope_ = &instrumentation_scope;
 }
 
 }  // namespace otlp

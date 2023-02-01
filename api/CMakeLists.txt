@@ -18,17 +18,12 @@ if(NOT WITH_LOGS_PREVIEW)
   set(LOGS_EXCLUDE_PATTERN "logs")
 endif()
 
-set(METRICS_EXCLUDE_PATTERN "")
-if(NOT WITH_METRICS_PREVIEW)
-  set(METRICS_EXCLUDE_PATTERN "metrics")
-endif()
-
 install(
   DIRECTORY include/opentelemetry
   DESTINATION include
   FILES_MATCHING
   PATTERN "*.h"
-  PATTERN "${METRICS_EXCLUDE_PATTERN}" EXCLUDE)
+  PATTERN "metrics" EXCLUDE)
 
 install(
   DIRECTORY include/opentelemetry
@@ -39,6 +34,11 @@ install(
 
 if(BUILD_TESTING)
   add_subdirectory(test)
+endif()
+
+if(WITH_NO_DEPRECATED_CODE)
+  target_compile_definitions(opentelemetry_api
+                             INTERFACE OPENTELEMETRY_NO_DEPRECATED_CODE)
 endif()
 
 if(WITH_ABSEIL)
@@ -74,10 +74,6 @@ if(WITH_GSL)
   endif()
 endif()
 
-if(WITH_METRICS_PREVIEW)
-  target_compile_definitions(opentelemetry_api INTERFACE ENABLE_METRICS_PREVIEW)
-endif()
-
 if(WITH_LOGS_PREVIEW)
   target_compile_definitions(opentelemetry_api INTERFACE ENABLE_LOGS_PREVIEW)
 endif()
@@ -91,4 +87,13 @@ if(WIN32)
   if(WITH_ETW)
     target_compile_definitions(opentelemetry_api INTERFACE HAVE_MSGPACK)
   endif()
+endif()
+
+if(WITH_ASYNC_EXPORT_PREVIEW)
+  target_compile_definitions(opentelemetry_api INTERFACE ENABLE_ASYNC_EXPORT)
+endif()
+
+if(WITH_METRICS_EXEMPLAR_PREVIEW)
+  target_compile_definitions(opentelemetry_api
+                             INTERFACE ENABLE_METRICS_EXEMPLAR_PREVIEW)
 endif()

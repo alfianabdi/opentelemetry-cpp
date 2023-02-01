@@ -3,7 +3,12 @@
 
 #pragma once
 
+#include <opentelemetry/exporters/jaeger/thrift_include_prefix.h>
+
 #include <jaeger_types.h>
+
+#include <opentelemetry/exporters/jaeger/thrift_include_suffix.h>
+
 #include <opentelemetry/sdk/trace/recordable.h>
 #include <opentelemetry/version.h>
 
@@ -86,9 +91,8 @@ public:
 
   void SetDuration(std::chrono::nanoseconds duration) noexcept override;
 
-  void SetInstrumentationLibrary(
-      const opentelemetry::sdk::instrumentationlibrary::InstrumentationLibrary
-          &instrumentation_library) noexcept override;
+  void SetInstrumentationScope(const opentelemetry::sdk::instrumentationscope::InstrumentationScope
+                                   &instrumentation_scope) noexcept override;
 
 private:
   void AddTag(const std::string &key, const std::string &value, std::vector<thrift::Tag> &tags);
