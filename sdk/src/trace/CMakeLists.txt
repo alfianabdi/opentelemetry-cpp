@@ -1,6 +1,7 @@
 add_library(
   opentelemetry_trace
   aws_xray_id_generator.cc
+  aws_xray_id_generator_factory.cc
   tracer_context.cc
   tracer_context_factory.cc
   tracer_provider.cc
