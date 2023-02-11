@@ -3,6 +3,7 @@
 
 #include "opentelemetry/sdk/trace/tracer_context_factory.h"
 #include "opentelemetry/sdk/trace/multi_span_processor.h"
+#include "opentelemetry/sdk/trace/aws_xray_id_generator_factory.h"
 #include "opentelemetry/sdk/trace/random_id_generator_factory.h"
 #include "opentelemetry/sdk/trace/samplers/always_on_factory.h"
 #include "opentelemetry/sdk/trace/tracer_context.h"
@@ -33,7 +34,8 @@ std::unique_ptr<TracerContext> TracerContextFactory::Create(
     const opentelemetry::sdk::resource::Resource &resource,
     std::unique_ptr<Sampler> sampler)
 {
-  auto id_generator = RandomIdGeneratorFactory::Create();
+  // auto id_generator = RandomIdGeneratorFactory::Create();
+  auto id_generator = AwsXrayIdGeneratorFactory::Create();
   return Create(std::move(processors), resource, std::move(sampler), std::move(id_generator));
 }
 

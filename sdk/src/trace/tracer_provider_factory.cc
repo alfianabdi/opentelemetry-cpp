@@ -3,6 +3,7 @@
 
 #include "opentelemetry/sdk/trace/tracer_provider_factory.h"
 #include "opentelemetry/sdk/trace/random_id_generator_factory.h"
+#include "opentelemetry/sdk/trace/aws_xray_id_generator_factory.h"
 #include "opentelemetry/sdk/trace/samplers/always_on_factory.h"
 #include "opentelemetry/sdk/trace/tracer_provider.h"
 
@@ -35,7 +36,8 @@ std::unique_ptr<opentelemetry::trace::TracerProvider> TracerProviderFactory::Cre
     const opentelemetry::sdk::resource::Resource &resource,
     std::unique_ptr<Sampler> sampler)
 {
-  auto id_generator = RandomIdGeneratorFactory::Create();
+  // auto id_generator = RandomIdGeneratorFactory::Create();
+  auto id_generator = AwsXrayIdGeneratorFactory::Create();
   return Create(std::move(processor), resource, std::move(sampler), std::move(id_generator));
 }
 
@@ -70,7 +72,8 @@ std::unique_ptr<opentelemetry::trace::TracerProvider> TracerProviderFactory::Cre
     const opentelemetry::sdk::resource::Resource &resource,
     std::unique_ptr<Sampler> sampler)
 {
-  auto id_generator = RandomIdGeneratorFactory::Create();
+  // auto id_generator = RandomIdGeneratorFactory::Create();
+  auto id_generator = AwsXrayIdGeneratorFactory::Create();
   return Create(std::move(processors), resource, std::move(sampler), std::move(id_generator));
 }
 
